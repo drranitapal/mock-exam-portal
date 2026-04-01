@@ -522,7 +522,7 @@ async function handleAccessRequest() {
         
         if (data.success) {
             statusText.style.color = "green";
-            statusText.innerText = "Request sent! Check your email soon for access details.";
+            statusText.innerText = "Request sent! The teacher will contact you soon.";
             document.getElementById('req-name').value = '';
             document.getElementById('req-email').value = '';
         } else {
