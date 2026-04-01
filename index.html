@@ -22,22 +22,21 @@
 </head>
 <body>
 
-    <div id="setup-screen" class="screen active">
+	<div id="setup-screen" class="screen active">
         <div class="container">
             <h1>Mock Examination Portal</h1>
-	    <h3> Dr. Ranita Pal <h3>
             <p>Duration: 180 Minutes | Total Questions: 150</p>
             
-            <div id="admin-panel" style="display: none;" class="admin-card">
-                <h3>Admin: Import Questions</h3>
-                <p>Upload a CSV file or paste JSON/CSV text. Format must match the specifications.</p>
-                <input type="file" id="csv-upload" accept=".csv">
-                <textarea id="data-paste" placeholder="Paste CSV or JSON here..."></textarea>
-                <button id="import-btn" class="btn secondary-btn">Import Data</button>
-                <div id="import-status"></div>
+            <div id="login-box" style="margin-top: 20px; text-align: left; background: #f8f9fa; padding: 20px; border-radius: 5px;">
+                <h3>Student Login</h3>
+                <input type="text" id="login-id" placeholder="User ID" style="width: 100%; padding: 10px; margin: 10px 0;">
+                <input type="password" id="login-pass" placeholder="Password" style="width: 100%; padding: 10px; margin: 10px 0;">
+                <button id="btn-login" class="btn primary-btn" style="width: 100%;">Login & Start Exam</button>
+                <p id="login-status" style="color: red; margin-top: 10px; font-weight: bold;"></p>
             </div>
-
-            <button id="start-exam-btn" class="btn primary-btn large-btn">Start Exam</button>
+            
+            <div id="admin-panel" style="display: none;" class="admin-card">
+                 </div>
         </div>
     </div>
 
