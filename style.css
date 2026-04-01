@@ -210,29 +210,3 @@ body {
     .action-buttons { justify-content: space-between; }
     .btn-next { margin-left: 0; }
 }
-
-/* --- Authentication & Admin Styles --- */
-.input-field {
-    width: 100%;
-    padding: 12px;
-    margin: 10px 0 20px 0;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-size: 16px;
-}
-.error-text { color: red; margin-top: 10px; font-weight: bold; }
-.error-btn { background-color: #dc3545; color: white; }
-
-.admin-container { max-width: 1000px; }
-.table-responsive { overflow-x: auto; margin-top: 20px; }
-#results-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-}
-#results-table th, #results-table td {
-    border: 1px solid var(--border-color);
-    padding: 12px;
-}
-#results-table th { background-color: var(--primary-blue); color: white; }
-#results-table tr:nth-child(even) { background-color: var(--light-blue); }
