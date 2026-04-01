@@ -6,7 +6,7 @@
 // 1. CONFIGURATION (PASTE YOUR URL HERE)
 // ==========================================
 // Replace this with the Web App URL you got from Google Apps Script
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_ACTUAL_ID_HERE/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRQ3WhDiNLYHvd5TzaTE3w8ogenhbow4CAITQ8duCMcq1Xc5XczJhzzQK5W3T5D6eaqA/exec";
 
 let loggedInUser = ""; // Tracks the currently logged-in student
 
