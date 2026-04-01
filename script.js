@@ -1,8 +1,18 @@
 /**
- * NTA-Style Mock Exam Logic
+ * NTA-Style Mock Exam Logic with Google Sheets Backend
  */
 
-// --- Constants & Defaults ---
+// ==========================================
+// 1. CONFIGURATION (PASTE YOUR URL HERE)
+// ==========================================
+// Replace this with the Web App URL you got from Google Apps Script
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_ACTUAL_ID_HERE/exec";
+
+let loggedInUser = ""; // Tracks the currently logged-in student
+
+// ==========================================
+// 2. CONSTANTS & DEFAULTS
+// ==========================================
 const EXAM_DURATION = 180 * 60; // 180 minutes in seconds
 const STATUS = {
     NOT_VISITED: 'not-visited',
@@ -12,7 +22,6 @@ const STATUS = {
     ANSWERED_MARKED: 'answered-marked'
 };
 
-// --- Dummy Data (Fallback) ---
 const getDummyData = () => {
     const data = [];
     const sections = ['Physics', 'Chemistry', 'Mathematics'];
@@ -22,7 +31,7 @@ const getDummyData = () => {
             data.push({
                 Section: sec,
                 QID: `${sec.charAt(0)}${i}`,
-                Question: `Sample ${sec} Question ${i}: What is the solution to $E = mc^2$ where $m=1, c=3 \times 10^8$? \n\n Evaluate $\\int_{0}^{1} x^2 dx$.`,
+                Question: `Sample ${sec} Question ${i}: What is the solution to $E = mc^2$ where $m=1, c=3 \\times 10^8$? \n\n Evaluate $\\int_{0}^{1} x^2 dx$.`,
                 'Option A': `$\\frac{1}{3}$`,
                 'Option B': `$9 \\times 10^{16}$`,
                 'Option C': `Zero`,
@@ -36,39 +45,19 @@ const getDummyData = () => {
     return data;
 };
 
-// --- State Management ---
+// ==========================================
+// 3. STATE MANAGEMENT
+// ==========================================
 let state = {
     questions: [],
     sections: [],
     currentSection: '',
     currentIndex: 0,
-    answers: {},       // QID -> selected option (A, B, C, D)
-    statuses: {},      // QID -> STATUS enum
+    answers: {},       
+    statuses: {},      
     timeLeft: EXAM_DURATION,
     timerInterval: null
 };
-
-// --- Initialization ---
-document.addEventListener("DOMContentLoaded", () => {
-    checkAdminMode();
-    loadState();
-    
-    document.getElementById('start-exam-btn').addEventListener('click', startExam);
-    document.getElementById('btn-next').addEventListener('click', () => navigate(true, true));
-    document.getElementById('btn-prev').addEventListener('click', () => navigate(false, false));
-    document.getElementById('btn-mark').addEventListener('click', markForReview);
-    document.getElementById('btn-clear').addEventListener('click', clearResponse);
-    document.getElementById('btn-submit-exam').addEventListener('click', confirmSubmit);
-    document.getElementById('import-btn').addEventListener('click', handleImport);
-    document.getElementById('btn-export-json').addEventListener('click', exportResults);
-});
-
-function checkAdminMode() {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === '1') {
-        document.getElementById('admin-panel').style.display = 'block';
-    }
-}
 
 function loadState() {
     const saved = localStorage.getItem('mockExamState');
@@ -76,10 +65,6 @@ function loadState() {
         try {
             const parsed = JSON.parse(saved);
             state = { ...state, ...parsed };
-            // If exam was already active but not submitted, start it
-            if (state.timeLeft < EXAM_DURATION && state.timeLeft > 0) {
-                document.getElementById('start-exam-btn').innerText = "Resume Exam";
-            }
         } catch (e) {
             console.error("Failed to parse saved state", e);
         }
@@ -89,11 +74,9 @@ function loadState() {
         state.questions = getDummyData();
     }
     
-    // Extract unique sections
     state.sections = [...new Set(state.questions.map(q => q.Section))];
     if (!state.currentSection) state.currentSection = state.sections[0];
 
-    // Initialize statuses if empty
     state.questions.forEach(q => {
         if (!state.statuses[q.QID]) {
             state.statuses[q.QID] = STATUS.NOT_VISITED;
@@ -105,9 +88,68 @@ function saveState() {
     localStorage.setItem('mockExamState', JSON.stringify(state));
 }
 
-// --- Exam Flow ---
+// ==========================================
+// 4. INITIALIZATION & LOGIN LOGIC
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+    checkAdminMode();
+    loadState();
+    
+    // Login and Exam Controls
+    document.getElementById('btn-login').addEventListener('click', handleLogin);
+    document.getElementById('btn-next').addEventListener('click', () => navigate(true, true));
+    document.getElementById('btn-prev').addEventListener('click', () => navigate(false, false));
+    document.getElementById('btn-mark').addEventListener('click', markForReview);
+    document.getElementById('btn-clear').addEventListener('click', clearResponse);
+    document.getElementById('btn-submit-exam').addEventListener('click', confirmSubmit);
+    
+    // Admin Controls
+    const importBtn = document.getElementById('import-btn');
+    if (importBtn) importBtn.addEventListener('click', handleImport);
+});
+
+async function handleLogin() {
+    const userId = document.getElementById('login-id').value.trim();
+    const pass = document.getElementById('login-pass').value.trim();
+    const statusText = document.getElementById('login-status');
+    
+    if (!userId || !pass) {
+        statusText.innerText = "Please enter both ID and Password.";
+        return;
+    }
+    
+    statusText.style.color = "blue";
+    statusText.innerText = "Authenticating... please wait.";
+    document.getElementById('btn-login').disabled = true;
+
+    try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "login", userId: userId, password: pass }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            loggedInUser = userId;
+            startExam(); 
+        } else {
+            statusText.style.color = "red";
+            statusText.innerText = data.message;
+            document.getElementById('btn-login').disabled = false;
+        }
+    } catch (e) {
+        statusText.style.color = "red";
+        statusText.innerText = "Network error. Make sure you are connected to the internet.";
+        document.getElementById('btn-login').disabled = false;
+    }
+}
+
+// ==========================================
+// 5. EXAM FLOW & TIMER
+// ==========================================
 function startExam() {
-    // Request fullscreen (optional, good for mock exams)
     try {
         if (document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen();
@@ -117,6 +159,10 @@ function startExam() {
     document.getElementById('setup-screen').classList.remove('active');
     document.getElementById('exam-screen').classList.add('active');
     
+    // Set candidate name in sidebar
+    const nameEl = document.querySelector('.user-info div:nth-child(2)');
+    if (nameEl) nameEl.innerText = `Candidate: ${loggedInUser}`;
+    
     startTimer();
     renderSectionNav();
     loadQuestion(0, state.currentSection);
@@ -124,7 +170,6 @@ function startExam() {
 
 function startTimer() {
     if (state.timerInterval) clearInterval(state.timerInterval);
-    
     const timerDisplay = document.getElementById('timer-display');
     
     state.timerInterval = setInterval(() => {
@@ -139,11 +184,13 @@ function startTimer() {
         const s = (state.timeLeft % 60).toString().padStart(2, '0');
         timerDisplay.innerText = `Time Left: ${m}:${s}`;
         
-        if (state.timeLeft % 30 === 0) saveState(); // Auto-save every 30s
+        if (state.timeLeft % 30 === 0) saveState(); 
     }, 1000);
 }
 
-// --- UI Rendering ---
+// ==========================================
+// 6. UI RENDERING & NAVIGATION
+// ==========================================
 function renderSectionNav() {
     const nav = document.getElementById('section-nav');
     nav.innerHTML = '';
@@ -161,7 +208,7 @@ function switchSection(sectionName) {
     state.currentSection = sectionName;
     renderSectionNav();
     document.getElementById('palette-section-title').innerText = sectionName;
-    loadQuestion(0, sectionName); // Load first question of new section
+    loadQuestion(0, sectionName); 
 }
 
 function loadQuestion(index, section) {
@@ -171,12 +218,10 @@ function loadQuestion(index, section) {
     state.currentIndex = index;
     const q = sectionQs[index];
     
-    // Update status from Not Visited to Not Answered
     if (state.statuses[q.QID] === STATUS.NOT_VISITED) {
         state.statuses[q.QID] = STATUS.NOT_ANSWERED;
     }
 
-    // Render Question Text
     document.getElementById('current-q-num').innerText = `Question ${index + 1}`;
     
     let qHTML = q.Question.replace(/\n/g, '<br>');
@@ -185,7 +230,6 @@ function loadQuestion(index, section) {
     }
     document.getElementById('question-text').innerHTML = qHTML;
 
-    // Render Options
     const optContainer = document.getElementById('options-container');
     optContainer.innerHTML = '';
     
@@ -202,7 +246,6 @@ function loadQuestion(index, section) {
         radio.value = opt;
         if (state.answers[q.QID] === opt) radio.checked = true;
 
-        // Auto-save on select
         radio.addEventListener('change', (e) => {
             state.answers[q.QID] = e.target.value;
         });
@@ -212,7 +255,6 @@ function loadQuestion(index, section) {
         optContainer.appendChild(label);
     });
 
-    // Re-render MathJax
     if (window.MathJax) {
         MathJax.typesetPromise([document.getElementById('question-text'), document.getElementById('options-container')]);
     }
@@ -231,22 +273,16 @@ function renderPalette() {
     sectionQs.forEach((q, idx) => {
         const btn = document.createElement('button');
         const s = state.statuses[q.QID];
-        
         counts[s]++;
         
         btn.className = `palette-btn ${s}`;
         btn.innerText = idx + 1;
         btn.onclick = () => loadQuestion(idx, state.currentSection);
         
-        // Highlight current
-        if (idx === state.currentIndex) {
-            btn.style.border = "2px solid #000";
-        }
-        
+        if (idx === state.currentIndex) btn.style.border = "2px solid #000";
         palette.appendChild(btn);
     });
 
-    // Update legend counts
     document.querySelector('.status-legend .not-visited').innerText = counts[STATUS.NOT_VISITED];
     document.querySelector('.status-legend .not-answered').innerText = counts[STATUS.NOT_ANSWERED];
     document.querySelector('.status-legend .answered').innerText = counts[STATUS.ANSWERED];
@@ -254,7 +290,6 @@ function renderPalette() {
     document.querySelector('.status-legend .answered-marked').innerText = counts[STATUS.ANSWERED_MARKED];
 }
 
-// --- Interactions ---
 function getCurrentQ() {
     return state.questions.filter(q => q.Section === state.currentSection)[state.currentIndex];
 }
@@ -266,8 +301,6 @@ function navigate(forward, save) {
         const selected = document.querySelector('input[name="option"]:checked');
         if (selected) {
             state.answers[q.QID] = selected.value;
-            // If it was marked, NTA rules usually change it to "Answered & Marked" or "Answered". 
-            // We set to answered if purely saving.
             if(state.statuses[q.QID] === STATUS.MARKED || state.statuses[q.QID] === STATUS.ANSWERED_MARKED) {
                 state.statuses[q.QID] = STATUS.ANSWERED_MARKED;
             } else {
@@ -284,7 +317,7 @@ function navigate(forward, save) {
     } else if (!forward && state.currentIndex > 0) {
         loadQuestion(state.currentIndex - 1, state.currentSection);
     } else {
-        renderPalette(); // Just update palette if bounds reached
+        renderPalette(); 
         saveState();
     }
 }
@@ -299,7 +332,7 @@ function markForReview() {
     } else {
         state.statuses[q.QID] = STATUS.MARKED;
     }
-    navigate(true, false); // Move to next
+    navigate(true, false); 
 }
 
 function clearResponse() {
@@ -314,72 +347,85 @@ function clearResponse() {
     saveState();
 }
 
-// --- Submission ---
+// ==========================================
+// 7. SUBMISSION LOGIC (TO GOOGLE SHEETS)
+// ==========================================
 function confirmSubmit() {
     if (confirm("Are you sure you want to submit the exam? You cannot change your answers after submission.")) {
         autoSubmit();
     }
 }
 
-function autoSubmit() {
+async function autoSubmit() {
     clearInterval(state.timerInterval);
     
-    try {
-        if (document.exitFullscreen) document.exitFullscreen();
-    } catch(e){}
+    try { if (document.exitFullscreen) document.exitFullscreen(); } catch(e){}
 
     document.getElementById('exam-screen').classList.remove('active');
     document.getElementById('result-screen').classList.add('active');
     
-    calculateResults();
-    localStorage.removeItem('mockExamState'); // Clear progress
-}
+    const resultsDiv = document.getElementById('score-summary');
+    resultsDiv.style.display = "block";
+    resultsDiv.innerHTML = "<h3>Submitting results securely... Please do not close this window.</h3>";
 
-function calculateResults() {
+    // Calculate Score
     let correct = 0, incorrect = 0, unattempted = 0;
-    
     state.questions.forEach(q => {
         const ans = state.answers[q.QID];
-        if (!ans) {
-            unattempted++;
-        } else if (ans === q.Answer) {
-            correct++;
-        } else {
-            incorrect++;
-        }
+        if (!ans) unattempted++;
+        else if (ans === q.Answer) correct++;
+        else incorrect++;
     });
+    const marks = (correct * 4) - (incorrect * 1);
 
-    const marks = (correct * 4) - (incorrect * 1); // Standard +4/-1 scheme
-    
-    document.getElementById('score-summary').innerHTML = `
-        <h3>Total Score: ${marks}</h3>
-        <p>Correct: ${correct} (+${correct * 4})</p>
-        <p>Incorrect: ${incorrect} (-${incorrect * 1})</p>
-        <p>Unattempted: ${unattempted}</p>
-    `;
+    // Send to Google Sheets
+    try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ 
+                action: "submit", 
+                userId: loggedInUser || "Unknown", 
+                score: marks,
+                correct: correct,
+                incorrect: incorrect,
+                timeRemaining: state.timeLeft
+            }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        
+        resultsDiv.innerHTML = `
+            <h3>Total Score: ${marks}</h3>
+            <p>Your results have been successfully recorded by the administrator.</p>
+            <p>Correct: ${correct} | Incorrect: ${incorrect} | Unattempted: ${unattempted}</p>
+        `;
+        localStorage.removeItem('mockExamState'); 
+        
+    } catch (error) {
+        resultsDiv.innerHTML = `
+            <h3 style="color: red;">Submission Error</h3>
+            <p>There was a network error submitting your exam. Please take a screenshot of this page and contact your administrator.</p>
+            <p><strong>Score: ${marks}</strong></p>
+            <p>Correct: ${correct} | Incorrect: ${incorrect} | Unattempted: ${unattempted}</p>
+        `;
+    }
 }
 
-function exportResults() {
-    const results = {
-        candidateAnswers: state.answers,
-        timeRemaining: state.timeLeft,
-        fullData: state.questions
-    };
-    
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(results, null, 2));
-    const dlAnchorElem = document.createElement('a');
-    dlAnchorElem.setAttribute("href", dataStr);
-    dlAnchorElem.setAttribute("download", "exam_results.json");
-    dlAnchorElem.click();
+// ==========================================
+// 8. ADMIN / IMPORT LOGIC
+// ==========================================
+function checkAdminMode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('admin') === '1') {
+        document.getElementById('admin-panel').style.display = 'block';
+    }
 }
 
-// --- Import Logic ---
 function handleImport() {
     const fileInput = document.getElementById('csv-upload');
     const textInput = document.getElementById('data-paste').value.trim();
     const statusDiv = document.getElementById('import-status');
     
-    if (fileInput.files.length > 0) {
+    if (fileInput && fileInput.files.length > 0) {
         const reader = new FileReader();
         reader.onload = function(e) {
             parseCSV(e.target.result, statusDiv);
@@ -387,7 +433,6 @@ function handleImport() {
         reader.readAsText(fileInput.files[0]);
     } else if (textInput) {
         if (textInput.startsWith('[')) {
-            // Assume JSON
             try {
                 const data = JSON.parse(textInput);
                 saveImportedData(data, statusDiv);
@@ -395,7 +440,6 @@ function handleImport() {
                 statusDiv.innerText = "Invalid JSON format.";
             }
         } else {
-            // Assume CSV
             parseCSV(textInput, statusDiv);
         }
     } else {
@@ -405,13 +449,11 @@ function handleImport() {
 
 function parseCSV(csvText, statusDiv) {
     try {
-        // Basic CSV parser (handles simple quoted strings, but not nested quotes)
         const lines = csvText.split('\n').filter(l => l.trim().length > 0);
         const headers = lines[0].split(',').map(h => h.trim());
         
         const data = [];
         for (let i = 1; i < lines.length; i++) {
-            // Match commas not inside quotes
             const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
             const obj = {};
             headers.forEach((h, index) => {
@@ -435,7 +477,7 @@ function saveImportedData(data, statusDiv) {
     }
     
     state.questions = data;
-    localStorage.removeItem('mockExamState'); // Reset progress for new data
+    localStorage.removeItem('mockExamState'); 
     state.answers = {};
     state.statuses = {};
     state.timeLeft = EXAM_DURATION;
