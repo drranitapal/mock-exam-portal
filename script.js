@@ -527,7 +527,7 @@ async function handleAccessRequest() {
             document.getElementById('req-email').value = '';
         } else {
             statusText.style.color = "red";
-            statusText.innerText = "Failed to send request. Please try again.";
+            statusText.innerText = data.message || "Failed to send request. Please try again.";
         }
     } catch (e) {
         statusText.style.color = "red";
