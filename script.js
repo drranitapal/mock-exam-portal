@@ -102,6 +102,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('btn-mark').addEventListener('click', markForReview);
     document.getElementById('btn-clear').addEventListener('click', clearResponse);
     document.getElementById('btn-submit-exam').addEventListener('click', confirmSubmit);
+    document.getElementById('link-show-request').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-box').style.display = 'none'; document.getElementById('request-box').style.display = 'block'; });
+    document.getElementById('btn-cancel-request').addEventListener('click', () => { document.getElementById('request-box').style.display = 'none'; document.getElementById('login-box').style.display = 'block'; });
+    document.getElementById('btn-send-request').addEventListener('click', handleAccessRequest);
     
     // Admin Controls
     const importBtn = document.getElementById('import-btn');
@@ -486,4 +489,49 @@ function saveImportedData(data, statusDiv) {
     statusDiv.style.color = "green";
     statusDiv.innerText = `Successfully imported ${data.length} questions. Reloading...`;
     setTimeout(() => location.reload(), 1500);
+}
+
+// ==========================================
+// 9. SEND REQUEST LOGIC
+// ==========================================
+
+async function handleAccessRequest() {
+    const name = document.getElementById('req-name').value.trim();
+    const email = document.getElementById('req-email').value.trim();
+    const statusText = document.getElementById('request-status');
+    const btn = document.getElementById('btn-send-request');
+    
+    if (!name || !email) {
+        statusText.style.color = "red";
+        statusText.innerText = "Please enter both name and email.";
+        return;
+    }
+    
+    statusText.style.color = "blue";
+    statusText.innerText = "Sending request...";
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "requestAccess", name: name, email: email }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            statusText.style.color = "green";
+            statusText.innerText = "Request sent! Check your email soon for access details.";
+            document.getElementById('req-name').value = '';
+            document.getElementById('req-email').value = '';
+        } else {
+            statusText.style.color = "red";
+            statusText.innerText = "Failed to send request. Please try again.";
+        }
+    } catch (e) {
+        statusText.style.color = "red";
+        statusText.innerText = "Network error. Make sure you are connected to the internet.";
+    }
+    btn.disabled = false;
 }
