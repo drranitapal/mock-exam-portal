@@ -3,40 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mock Exam Platform</title>
+    <title>Secure Mock Exam Platform</title>
     <link rel="stylesheet" href="style.css">
     <script>
         MathJax = {
-            tex: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']]
-            },
-            startup: {
-                pageReady: () => {
-                    return MathJax.startup.defaultPageReady();
-                }
-            }
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+            startup: { pageReady: () => { return MathJax.startup.defaultPageReady(); } }
         };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 
-    <div id="setup-screen" class="screen active">
+    <div id="login-screen" class="screen active">
+        <div class="container login-container">
+            <h2>Exam Login</h2>
+            <p>Enter the credentials provided by your instructor.</p>
+            <input type="email" id="login-email" placeholder="Student ID (Email)" class="input-field">
+            <input type="password" id="login-password" placeholder="Password" class="input-field">
+            <button id="btn-login" class="btn primary-btn submit-btn">Login to Portal</button>
+            <p id="login-error" class="error-text"></p>
+        </div>
+    </div>
+
+    <div id="admin-dashboard-screen" class="screen">
+        <div class="container admin-container">
+            <h2>Admin Dashboard: Exam Results</h2>
+            <button id="btn-refresh-admin" class="btn secondary-btn">Refresh Data</button>
+            <button id="btn-admin-logout" class="btn error-btn">Logout</button>
+            
+            <div class="table-responsive">
+                <table id="results-table">
+                    <thead>
+                        <tr>
+                            <th>Candidate Email</th>
+                            <th>Total Score</th>
+                            <th>Correct</th>
+                            <th>Incorrect</th>
+                            <th>Time Remaining</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="setup-screen" class="screen">
         <div class="container">
             <h1>Mock Examination Portal</h1>
-	    <h3> Dr. Ranita Pal <h3>
             <p>Duration: 180 Minutes | Total Questions: 150</p>
-            
-            <div id="admin-panel" style="display: none;" class="admin-card">
-                <h3>Admin: Import Questions</h3>
-                <p>Upload a CSV file or paste JSON/CSV text. Format must match the specifications.</p>
-                <input type="file" id="csv-upload" accept=".csv">
-                <textarea id="data-paste" placeholder="Paste CSV or JSON here..."></textarea>
-                <button id="import-btn" class="btn secondary-btn">Import Data</button>
-                <div id="import-status"></div>
-            </div>
-
+            <p id="welcome-text"></p>
             <button id="start-exam-btn" class="btn primary-btn large-btn">Start Exam</button>
         </div>
     </div>
@@ -44,24 +62,14 @@
     <div id="exam-screen" class="screen">
         <header class="exam-header">
             <div class="exam-title">JEE/NEET Mock Test</div>
-            <div class="timer" id="timer-display" aria-label="Time Remaining">Time Left: 180:00</div>
+            <div class="timer" id="timer-display">Time Left: 180:00</div>
         </header>
-
-        <nav class="section-nav" id="section-nav">
-            </nav>
-
+        <nav class="section-nav" id="section-nav"></nav>
         <div class="exam-layout">
             <main class="question-area">
-                <div class="question-header">
-                    <span id="current-q-num" class="q-number">Question 1</span>
-                </div>
-                
-                <div class="question-content" id="question-text">
-                    </div>
-
-                <div class="options-container" id="options-container">
-                    </div>
-
+                <div class="question-header"><span id="current-q-num" class="q-number">Question 1</span></div>
+                <div class="question-content" id="question-text"></div>
+                <div class="options-container" id="options-container"></div>
                 <div class="action-buttons">
                     <button class="btn nav-btn" id="btn-prev">Previous</button>
                     <button class="btn action-btn" id="btn-mark">Mark for Review & Next</button>
@@ -69,13 +77,8 @@
                     <button class="btn nav-btn btn-next" id="btn-next">Save & Next</button>
                 </div>
             </main>
-
             <aside class="palette-sidebar">
-                <div class="user-info">
-                    <div class="avatar"></div>
-                    <div>Candidate Name</div>
-                </div>
-                
+                <div class="user-info"><div class="avatar"></div><div id="sidebar-candidate-name">Candidate</div></div>
                 <div class="status-legend">
                     <div class="legend-item"><span class="badge not-visited">0</span> Not Visited</div>
                     <div class="legend-item"><span class="badge not-answered">0</span> Not Answered</div>
@@ -83,33 +86,22 @@
                     <div class="legend-item"><span class="badge marked">0</span> Marked for Review</div>
                     <div class="legend-item"><span class="badge answered-marked">0</span> Answered & Marked</div>
                 </div>
-
-                <div class="palette-header">
-                    <h3 id="palette-section-title">Physics</h3>
-                </div>
-                
-                <div class="question-palette" id="question-palette">
-                    </div>
-
-                <div class="submit-area">
-                    <button id="btn-submit-exam" class="btn submit-btn">Submit Exam</button>
-                </div>
+                <div class="palette-header"><h3 id="palette-section-title">Physics</h3></div>
+                <div class="question-palette" id="question-palette"></div>
+                <div class="submit-area"><button id="btn-submit-exam" class="btn submit-btn">Submit Exam</button></div>
             </aside>
         </div>
     </div>
 
     <div id="result-screen" class="screen">
         <div class="container result-container">
-            <h2>Exam Summary</h2>
-            <div id="score-summary" class="summary-card">
-                </div>
-            <div class="action-buttons center">
-                <button id="btn-export-json" class="btn secondary-btn">Export Responses (JSON)</button>
-                <button onclick="location.reload()" class="btn primary-btn">Return Home</button>
-            </div>
+            <h2>Exam Submitted Successfully</h2>
+            <p>Your results have been securely recorded. You may now close this window.</p>
+            <div id="score-summary" class="summary-card" style="display:none;"></div>
+            <button id="btn-student-logout" class="btn secondary-btn">Logout</button>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>
