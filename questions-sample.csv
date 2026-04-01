@@ -1,0 +1,7 @@
+Section,QID,Question,Option A,Option B,Option C,Option D,Answer,Explanation,ImageURL
+Physics,P01,If a block of mass $m$ is placed on an inclined plane with angle $\theta$.  what is the frictional force if the block is at rest?,$mg \sin\theta$,$mg \cos\theta$,$\mu mg \cos\theta$,$\mu mg \sin\theta$,A,Frictional force balances the downward component $mg \sin\theta$.,
+Physics,P02,What is the dimension of Planck's constant $h$?,$[M L^2 T^{-1}]$,$[M L^2 T^{-2}]$,$[M L T^{-1}]$,$[M L T^{-2}]$,A,$E = h\nu \implies h = E/\nu$. Energy is $[M L^2 T^{-2}]$ and frequency is $[T^{-1}]$.,
+Chemistry,C01,The pH of a $10^{-8} M$ solution of HCl in water is closest to:,8,7,6.96,6,C,Water autoionization must be considered ($10^{-7} M$ $H^+$ from water adds to it).,
+Chemistry,C02,Which of the following molecules has a dipole moment?,$CO_2$,$CH_4$,$NH_3$,$BF_3$,C,$NH_3$ has a lone pair resulting in an asymmetric shape (trigonal pyramidal).,
+Mathematics,M01,Evaluate the integral $\int e^x (f(x) + f'(x)) dx$.,$e^x f'(x) + C$,$e^x f(x) + C$,$e^x (f(x))^2 + C$,$e^{-x} f(x) + C$,B,Standard integral form derived using product rule.,
+Mathematics,M02,If $\lim_{x \to 0} \frac{\sin(ax)}{x} = 5$.  what is the value of $a$?,1,0,5,-5,C,Using L'Hôpital's rule or standard limit properties $\lim_{x \to 0} \frac{\sin(kx)}{x} = k$.,
