@@ -32,6 +32,23 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- FULL SCREEN ANTI-CHEAT LISTENERS ---
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    // Listener for the Anti-Cheat Modal button
+    document.getElementById('btn-return-fullscreen').addEventListener('click', () => {
+        // Hide the modal
+        document.getElementById('fullscreen-warning-modal').style.display = 'none';
+        
+        // Force full-screen back on (This works now because it is attached to a real click!)
+        try {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+            } else if (document.documentElement.webkitRequestFullscreen) { /* Safari */
+                document.documentElement.webkitRequestFullscreen();
+            }
+        } catch(e) {
+            console.error("Fullscreen request failed", e);
+        }
+    });
 });
 
 // ==========================================
