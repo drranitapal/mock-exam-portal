@@ -33,21 +33,32 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 
-    // Listener for the Anti-Cheat Modal button
-    document.getElementById('btn-return-fullscreen').addEventListener('click', () => {
-        // Hide the modal
-        document.getElementById('fullscreen-warning-modal').style.display = 'none';
-        
-        // Force full-screen back on (This works now because it is attached to a real click!)
+    // --- FULLSCREEN MODAL BUTTON LISTENERS ---
+    
+    // Button 1: Go Full Screen
+    document.getElementById('btn-return-fullscreen').addEventListener('click', async () => {
         try {
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen();
-            } else if (document.documentElement.webkitRequestFullscreen) { /* Safari */
-                document.documentElement.webkitRequestFullscreen();
+            const elem = document.documentElement;
+            // Cross-browser full screen requests
+            if (elem.requestFullscreen) {
+                await elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) { /* Safari */
+                await elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { /* IE11 */
+                await elem.msRequestFullscreen();
             }
+            // Only hide the modal if the browser successfully entered full screen
+            document.getElementById('fullscreen-warning-modal').style.display = 'none';
         } catch(e) {
             console.error("Fullscreen request failed", e);
+            alert("Your browser blocked full screen. Please click 'Go Full Screen' again.");
         }
+    });
+
+    // Button 2: Submit Exam
+    document.getElementById('btn-force-submit').addEventListener('click', () => {
+        document.getElementById('fullscreen-warning-modal').style.display = 'none';
+        autoSubmit(); // Instantly grade and submit
     });
 });
 
@@ -57,17 +68,23 @@ document.addEventListener("DOMContentLoaded", () => {
 function handleFullscreenChange() {
     // Only trigger if the exam is currently active
     if (document.getElementById('exam-screen').classList.contains('active')) {
-        if (!document.fullscreenElement && !document.webkitIsFullScreen) {
+        
+        // Cross-browser check to see if we are OUT of full screen
+        if (!document.fullscreenElement && !document.webkitIsFullScreen && !document.mozFullScreenElement && !document.msFullscreenElement) {
+            
             state.escapeCount = (state.escapeCount || 0) + 1;
             saveState(); // Save immediately so they can't bypass by refreshing
 
-            if (state.escapeCount === 1) {
-                alert("WARNING (1/3): You have exited full-screen mode. Escaping full-screen 3 times will result in automatic test submission.");
-            } else if (state.escapeCount === 2) {
-                alert("WARNING (2/3): You have exited full-screen mode again! One more time and your exam will be auto-submitted immediately.");
-            } else if (state.escapeCount >= 3) {
-                alert("EXAM AUTO-SUBMITTED: You have tried to escape full screen mode 3 times. Your test is now ending.");
+            if (state.escapeCount >= 3) {
+                // Strike 3: Auto-submit directly.
+                document.getElementById('fullscreen-warning-modal').style.display = 'none';
+                alert("EXAM AUTO-SUBMITTED: You have tried to escape full screen mode 3 times.");
                 autoSubmit();
+            } else {
+                // Strike 1 & 2: Show the enforcement modal (NO native alerts!)
+                const msgText = `WARNING (${state.escapeCount}/3): You have exited full-screen mode!\n\nKindly go fullscreen or else you will not be able to resume the test.`;
+                document.getElementById('warning-msg-text').innerText = msgText;
+                document.getElementById('fullscreen-warning-modal').style.display = 'flex';
             }
         }
     }
