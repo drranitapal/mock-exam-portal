@@ -22,49 +22,49 @@
 </head>
 <body>
 
-	<div id="setup-screen" class="screen active modern-portal">
-        <canvas id="portal-canvas"></canvas> 
+	<div id="setup-screen" class="screen active modern-portal-light">
+        <canvas id="portal-canvas" class="bg-canvas"></canvas> 
         
         <div class="glass-container">
             <div id="global-loader" class="glass-card text-center" style="display: block;">
-                <div class="loader-spinner"></div>
-                <h3 class="gradient-text" style="margin-top: 20px;">Establishing Secure Connection</h3>
-                <p style="color: #94a3b8;">Loading dynamic question bank...</p>
+                <div class="loader-spinner-light"></div>
+                <h3 class="gradient-text-light" style="margin-top: 20px;">Establishing Secure Connection</h3>
+                <p class="sub-text">Loading dynamic question bank...</p>
             </div>
 
             <div id="auth-container" class="glass-card" style="display: none;">
                 <div class="card-header text-center">
-                    <h1 class="gradient-text">Mock Examination Portal</h1>
-                    <div class="stats-pill">
-                        Total Sections: <span id="display-sections" class="highlight">--</span> 
+                    <h1 class="gradient-text-light">Mock Examination Portal</h1>
+                    <div class="stats-pill-light">
+                        Total Sections: <span id="display-sections" class="highlight-light">--</span> 
                         <span class="divider-dot">•</span> 
-                        Total Questions: <span id="display-total-q" class="highlight">--</span>
+                        Total Questions: <span id="display-total-q" class="highlight-light">--</span>
                     </div>
                 </div>
                 
                 <div id="login-box" class="form-box">
-                    <h3 class="box-title">Student Login</h3>
+                    <h3 class="box-title-light">Student Login</h3>
                     <div class="input-group">
-                        <input type="text" id="login-id" placeholder="User ID" class="glass-input">
+                        <input type="text" id="login-id" placeholder="User ID" class="glass-input-light">
                     </div>
                     <div class="input-group">
-                        <input type="password" id="login-pass" placeholder="Password" class="glass-input">
+                        <input type="password" id="login-pass" placeholder="Password" class="glass-input-light">
                     </div>
                     <button id="btn-login" class="btn glass-btn-primary">Login & Start Exam</button>
                     <p id="login-status" class="status-message"></p>
                     
-                    <div class="glass-divider"></div>
-                    <p class="link-text">Don't have an ID? <a href="#" id="link-show-request" class="accent-link">Request Test Access</a></p>
+                    <div class="glass-divider-light"></div>
+                    <p class="link-text-light">Don't have an ID? <a href="#" id="link-show-request" class="accent-link-light">Request Test Access</a></p>
                 </div>
 
                 <div id="request-box" class="form-box" style="display: none;">
-                    <h3 class="box-title">Request Test Access</h3>
+                    <h3 class="box-title-light">Request Test Access</h3>
                     <p class="sub-text">Enter your details. The administrator will email you access credentials.</p>
                     <div class="input-group">
-                        <input type="text" id="req-name" placeholder="Your Full Name" class="glass-input">
+                        <input type="text" id="req-name" placeholder="Your Full Name" class="glass-input-light">
                     </div>
                     <div class="input-group">
-                        <input type="email" id="req-email" placeholder="Your Email Address" class="glass-input">
+                        <input type="email" id="req-email" placeholder="Your Email Address" class="glass-input-light">
                     </div>
                     <button id="btn-send-request" class="btn glass-btn-primary">Send Request</button>
                     <button id="btn-cancel-request" class="btn glass-btn-secondary">Cancel</button>
@@ -131,14 +131,19 @@
         </div>
     </div>
 
-    <div id="result-screen" class="screen">
-        <div class="container result-container">
-            <h2>Exam Summary</h2>
-            <div id="score-summary" class="summary-card">
-                </div>
-            <div class="action-buttons center">
-                <button id="btn-export-json" class="btn secondary-btn">Export Responses (JSON)</button>
-                <button onclick="location.reload()" class="btn primary-btn">Return Home</button>
+    <div id="result-screen" class="screen modern-portal-light">
+        <canvas id="result-canvas" class="bg-canvas"></canvas>
+        <div class="glass-container">
+            <div class="glass-card text-center">
+                <div class="success-icon">✓</div>
+                <h2 class="gradient-text-light" style="margin-top: 15px;">Exam Submitted</h2>
+                <p class="sub-text" style="font-size: 16px;">Your results have been securely recorded.</p>
+                
+                <div id="score-summary" class="score-display">
+                    </div>
+                
+                <div class="glass-divider-light"></div>
+                <button id="btn-student-logout" class="btn glass-btn-primary" style="max-width: 200px; margin: 0 auto;">Secure Logout</button>
             </div>
         </div>
     </div>
