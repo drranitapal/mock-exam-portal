@@ -91,7 +91,7 @@ function handleFullscreenChange() {
 }
 
 // ==========================================
-// DATA FETCHING (Now includes Settings)
+// DATA FETCHING (Includes Settings & Title)
 // ==========================================
 async function fetchQuestionBank() {
     try {
@@ -99,10 +99,26 @@ async function fetchQuestionBank() {
         const data = await response.json();
         
         if (data.success && data.data.length > 0) {
-            // Apply Timer from Google Sheets
-            if (data.settings && data.settings.TimerMinutes) {
-                EXAM_DURATION = parseInt(data.settings.TimerMinutes) * 60;
-                if (!localStorage.getItem('mockExamState')) state.timeLeft = EXAM_DURATION;
+            
+            // Apply Settings from Google Sheets
+            if (data.settings) {
+                // 1. Dynamic Timer
+                if (data.settings.TimerMinutes) {
+                    EXAM_DURATION = parseInt(data.settings.TimerMinutes) * 60;
+                    if (!localStorage.getItem('mockExamState')) state.timeLeft = EXAM_DURATION;
+                }
+                
+                // 2. Dynamic Exam Title
+                if (data.settings.ExamTitle) {
+                    const titleText = data.settings.ExamTitle;
+                    document.title = titleText; // Updates the browser tab text
+                    
+                    const portalTitle = document.getElementById('portal-main-title');
+                    const examTitle = document.getElementById('exam-main-title');
+                    
+                    if (portalTitle) portalTitle.innerText = titleText;
+                    if (examTitle) examTitle.innerText = titleText;
+                }
             }
 
             state.questions = data.data;
