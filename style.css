@@ -288,13 +288,28 @@ body {
 .stats-pill-light .divider-dot { margin: 0 8px; color: #cbd5e1; }
 
 .box-title-light {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 20px;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 25px;
     color: #1e293b;
-    border-bottom: 2px solid rgba(0, 86, 179, 0.2);
-    padding-bottom: 10px;
-    display: inline-block;
+    text-align: center; /* Centers the text */
+    display: block;     /* Forces it to take full width so centering works */
+    position: relative;
+    padding-bottom: 12px;
+    border-bottom: none; /* Removes the old left-aligned border */
+}
+
+/* Adds a perfectly centered modern gradient underline */
+.box-title-light::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px; /* Width of the underline */
+    height: 3px;
+    background: linear-gradient(90deg, #0056b3, #0284c7);
+    border-radius: 3px;
 }
 
 .sub-text { font-size: 14px; color: #64748b; margin-bottom: 20px; line-height: 1.5; }
