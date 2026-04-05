@@ -1,53 +1,9 @@
-/**
- * NTA-Style Mock Exam Logic with Google Sheets Backend
- */
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_ACTUAL_ID_HERE/exec"; // PASTE YOUR URL HERE
+let loggedInUser = "";
 
-// ==========================================
-// 1. CONFIGURATION (PASTE YOUR URL HERE)
-// ==========================================
-// Replace this with the Web App URL you got from Google Apps Script
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRQ3WhDiNLYHvd5TzaTE3w8ogenhbow4CAITQ8duCMcq1Xc5XczJhzzQK5W3T5D6eaqA/exec";
+const EXAM_DURATION = 180 * 60; 
+const STATUS = { NOT_VISITED: 'not-visited', NOT_ANSWERED: 'not-answered', ANSWERED: 'answered', MARKED: 'marked', ANSWERED_MARKED: 'answered-marked' };
 
-let loggedInUser = ""; // Tracks the currently logged-in student
-
-// ==========================================
-// 2. CONSTANTS & DEFAULTS
-// ==========================================
-const EXAM_DURATION = 180 * 60; // 180 minutes in seconds
-const STATUS = {
-    NOT_VISITED: 'not-visited',
-    NOT_ANSWERED: 'not-answered',
-    ANSWERED: 'answered',
-    MARKED: 'marked',
-    ANSWERED_MARKED: 'answered-marked'
-};
-
-const getDummyData = () => {
-    const data = [];
-    const sections = ['Physics', 'Chemistry', 'Mathematics'];
-    
-    sections.forEach(sec => {
-        for (let i = 1; i <= 10; i++) {
-            data.push({
-                Section: sec,
-                QID: `${sec.charAt(0)}${i}`,
-                Question: `Sample ${sec} Question ${i}: What is the solution to $E = mc^2$ where $m=1, c=3 \\times 10^8$? \n\n Evaluate $\\int_{0}^{1} x^2 dx$.`,
-                'Option A': `$\\frac{1}{3}$`,
-                'Option B': `$9 \\times 10^{16}$`,
-                'Option C': `Zero`,
-                'Option D': `Infinity`,
-                Answer: 'B',
-                Explanation: `Mass energy equivalence formula.`,
-                ImageURL: ''
-            });
-        }
-    });
-    return data;
-};
-
-// ==========================================
-// 3. STATE MANAGEMENT
-// ==========================================
 let state = {
     questions: [],
     sections: [],
@@ -59,29 +15,68 @@ let state = {
     timerInterval: null
 };
 
-function loadState() {
+document.addEventListener("DOMContentLoaded", () => {
+    fetchQuestionBank(); // Fetch from sheet on load
+    
+    document.getElementById('btn-login').addEventListener('click', handleLogin);
+    document.getElementById('btn-next').addEventListener('click', () => navigate(true, true));
+    document.getElementById('btn-prev').addEventListener('click', () => navigate(false, false));
+    document.getElementById('btn-mark').addEventListener('click', markForReview);
+    document.getElementById('btn-clear').addEventListener('click', clearResponse);
+    document.getElementById('btn-submit-exam').addEventListener('click', confirmSubmit);
+    
+    // Request Access Toggles
+    document.getElementById('link-show-request').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-box').style.display = 'none'; document.getElementById('request-box').style.display = 'block'; });
+    document.getElementById('btn-cancel-request').addEventListener('click', () => { document.getElementById('request-box').style.display = 'none'; document.getElementById('login-box').style.display = 'block'; });
+    document.getElementById('btn-send-request').addEventListener('click', handleAccessRequest);
+});
+
+// ==========================================
+// DATA FETCHING (NEW)
+// ==========================================
+async function fetchQuestionBank() {
+    try {
+        const response = await fetch(GOOGLE_SCRIPT_URL);
+        const data = await response.json();
+        
+        if (data.success && data.data.length > 0) {
+            state.questions = data.data;
+            
+            // Dynamically extract all unique sections
+            state.sections = [...new Set(state.questions.map(q => q.Section).filter(Boolean))];
+            state.currentSection = state.sections[0];
+            
+            // Initialize statuses
+            state.questions.forEach(q => { if (!state.statuses[q.QID]) state.statuses[q.QID] = STATUS.NOT_VISITED; });
+            
+            // Update UI
+            document.getElementById('display-sections').innerText = state.sections.length;
+            document.getElementById('display-total-q').innerText = state.questions.length;
+            document.getElementById('global-loader').style.display = 'none';
+            document.getElementById('auth-container').style.display = 'block';
+            
+            checkResumeState();
+        } else {
+            document.getElementById('global-loader').innerHTML = "<h3 style='color:red;'>Error loading questions. Admin: Check your Google Sheet data.</h3>";
+        }
+    } catch (error) {
+        document.getElementById('global-loader').innerHTML = "<h3 style='color:red;'>Network error. Please refresh the page.</h3>";
+    }
+}
+
+function checkResumeState() {
     const saved = localStorage.getItem('mockExamState');
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            state = { ...state, ...parsed };
-        } catch (e) {
-            console.error("Failed to parse saved state", e);
-        }
+            // Only resume if the questions haven't changed completely
+            if (parsed.questions && parsed.questions.length === state.questions.length) {
+                state.answers = parsed.answers;
+                state.statuses = parsed.statuses;
+                state.timeLeft = parsed.timeLeft;
+            }
+        } catch (e) { console.error("Failed to parse saved state"); }
     }
-
-    if (!state.questions || state.questions.length === 0) {
-        state.questions = getDummyData();
-    }
-    
-    state.sections = [...new Set(state.questions.map(q => q.Section))];
-    if (!state.currentSection) state.currentSection = state.sections[0];
-
-    state.questions.forEach(q => {
-        if (!state.statuses[q.QID]) {
-            state.statuses[q.QID] = STATUS.NOT_VISITED;
-        }
-    });
 }
 
 function saveState() {
@@ -89,40 +84,17 @@ function saveState() {
 }
 
 // ==========================================
-// 4. INITIALIZATION & LOGIN LOGIC
+// LOGIN & REQUEST LOGIC
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
-    checkAdminMode();
-    loadState();
-    
-    // Login and Exam Controls
-    document.getElementById('btn-login').addEventListener('click', handleLogin);
-    document.getElementById('btn-next').addEventListener('click', () => navigate(true, true));
-    document.getElementById('btn-prev').addEventListener('click', () => navigate(false, false));
-    document.getElementById('btn-mark').addEventListener('click', markForReview);
-    document.getElementById('btn-clear').addEventListener('click', clearResponse);
-    document.getElementById('btn-submit-exam').addEventListener('click', confirmSubmit);
-    document.getElementById('link-show-request').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-box').style.display = 'none'; document.getElementById('request-box').style.display = 'block'; });
-    document.getElementById('btn-cancel-request').addEventListener('click', () => { document.getElementById('request-box').style.display = 'none'; document.getElementById('login-box').style.display = 'block'; });
-    document.getElementById('btn-send-request').addEventListener('click', handleAccessRequest);
-    
-    // Admin Controls
-    const importBtn = document.getElementById('import-btn');
-    if (importBtn) importBtn.addEventListener('click', handleImport);
-});
-
 async function handleLogin() {
     const userId = document.getElementById('login-id').value.trim();
     const pass = document.getElementById('login-pass').value.trim();
     const statusText = document.getElementById('login-status');
     
-    if (!userId || !pass) {
-        statusText.innerText = "Please enter both ID and Password.";
-        return;
-    }
+    if (!userId || !pass) { statusText.innerText = "Please enter both ID and Password."; return; }
     
     statusText.style.color = "blue";
-    statusText.innerText = "Authenticating... please wait.";
+    statusText.innerText = "Authenticating...";
     document.getElementById('btn-login').disabled = true;
 
     try {
@@ -131,7 +103,6 @@ async function handleLogin() {
             body: JSON.stringify({ action: "login", userId: userId, password: pass }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
         });
-        
         const data = await response.json();
         
         if (data.success) {
@@ -144,25 +115,48 @@ async function handleLogin() {
         }
     } catch (e) {
         statusText.style.color = "red";
-        statusText.innerText = "Network error. Make sure you are connected to the internet.";
+        statusText.innerText = "Network error.";
         document.getElementById('btn-login').disabled = false;
     }
 }
 
+async function handleAccessRequest() {
+    const name = document.getElementById('req-name').value.trim();
+    const email = document.getElementById('req-email').value.trim();
+    const statusText = document.getElementById('request-status');
+    const btn = document.getElementById('btn-send-request');
+    
+    if (!name || !email) { statusText.style.color = "red"; statusText.innerText = "Please enter both name and email."; return; }
+    
+    statusText.style.color = "blue"; statusText.innerText = "Sending request..."; btn.disabled = true;
+
+    try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "requestAccess", name: name, email: email }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+        });
+        const data = await response.json();
+        if (data.success) {
+            statusText.style.color = "green"; statusText.innerText = "Request sent! Check your email soon.";
+            document.getElementById('req-name').value = ''; document.getElementById('req-email').value = '';
+        } else {
+            statusText.style.color = "red"; statusText.innerText = data.message || "Failed to send request.";
+        }
+    } catch (e) {
+        statusText.style.color = "red"; statusText.innerText = "Network error.";
+    }
+    btn.disabled = false;
+}
+
 // ==========================================
-// 5. EXAM FLOW & TIMER
+// EXAM FLOW & TIMER
 // ==========================================
 function startExam() {
-    try {
-        if (document.documentElement.requestFullscreen) {
-            document.documentElement.requestFullscreen();
-        }
-    } catch(e) {}
-
+    try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); } catch(e) {}
     document.getElementById('setup-screen').classList.remove('active');
     document.getElementById('exam-screen').classList.add('active');
     
-    // Set candidate name in sidebar
     const nameEl = document.querySelector('.user-info div:nth-child(2)');
     if (nameEl) nameEl.innerText = `Candidate: ${loggedInUser}`;
     
@@ -174,30 +168,22 @@ function startExam() {
 function startTimer() {
     if (state.timerInterval) clearInterval(state.timerInterval);
     const timerDisplay = document.getElementById('timer-display');
-    
     state.timerInterval = setInterval(() => {
-        if (state.timeLeft <= 0) {
-            clearInterval(state.timerInterval);
-            autoSubmit();
-            return;
-        }
+        if (state.timeLeft <= 0) { clearInterval(state.timerInterval); autoSubmit(); return; }
         state.timeLeft--;
-        
         const m = Math.floor(state.timeLeft / 60).toString().padStart(2, '0');
         const s = (state.timeLeft % 60).toString().padStart(2, '0');
         timerDisplay.innerText = `Time Left: ${m}:${s}`;
-        
         if (state.timeLeft % 30 === 0) saveState(); 
     }, 1000);
 }
 
 // ==========================================
-// 6. UI RENDERING & NAVIGATION
+// DYNAMIC UI RENDERING
 // ==========================================
 function renderSectionNav() {
     const nav = document.getElementById('section-nav');
     nav.innerHTML = '';
-    
     state.sections.forEach(sec => {
         const div = document.createElement('div');
         div.className = `section-tab ${sec === state.currentSection ? 'active' : ''}`;
@@ -221,24 +207,27 @@ function loadQuestion(index, section) {
     state.currentIndex = index;
     const q = sectionQs[index];
     
-    if (state.statuses[q.QID] === STATUS.NOT_VISITED) {
-        state.statuses[q.QID] = STATUS.NOT_ANSWERED;
-    }
+    if (state.statuses[q.QID] === STATUS.NOT_VISITED) state.statuses[q.QID] = STATUS.NOT_ANSWERED;
 
     document.getElementById('current-q-num').innerText = `Question ${index + 1}`;
     
-    let qHTML = q.Question.replace(/\n/g, '<br>');
-    if (q.ImageURL) {
-        qHTML += `<br><img src="${q.ImageURL}" alt="Question Image" onerror="this.style.display='none'">`;
+    // Render Text & Image
+    let qHTML = (q.Question || "").replace(/\n/g, '<br>');
+    if (q.ImageURL && q.ImageURL.trim() !== "") {
+        qHTML += `<br><img src="${q.ImageURL.trim()}" alt="Question Image" style="max-width:100%; margin-top:15px; border-radius:5px;">`;
     }
     document.getElementById('question-text').innerHTML = qHTML;
 
+    // DYNAMIC OPTIONS GENERATION (Option A to Option N)
     const optContainer = document.getElementById('options-container');
     optContainer.innerHTML = '';
     
-    ['A', 'B', 'C', 'D'].forEach(opt => {
-        const optVal = q[`Option ${opt}`];
-        if (!optVal) return;
+    // Find all keys in the object that start with "Option" and have a value
+    const optionKeys = Object.keys(q).filter(k => k.startsWith('Option') && q[k].trim() !== '');
+    
+    optionKeys.forEach(optKey => {
+        const optLetter = optKey.replace('Option', '').trim(); // Gets "A", "B", etc.
+        const optVal = q[optKey];
 
         const label = document.createElement('label');
         label.className = 'option-label';
@@ -246,21 +235,17 @@ function loadQuestion(index, section) {
         const radio = document.createElement('input');
         radio.type = 'radio';
         radio.name = 'option';
-        radio.value = opt;
-        if (state.answers[q.QID] === opt) radio.checked = true;
+        radio.value = optLetter;
+        if (state.answers[q.QID] === optLetter) radio.checked = true;
 
-        radio.addEventListener('change', (e) => {
-            state.answers[q.QID] = e.target.value;
-        });
+        radio.addEventListener('change', (e) => { state.answers[q.QID] = e.target.value; });
 
         label.appendChild(radio);
-        label.appendChild(document.createTextNode(`${opt}. ${optVal}`));
+        label.appendChild(document.createTextNode(` ${optLetter}. ${optVal}`));
         optContainer.appendChild(label);
     });
 
-    if (window.MathJax) {
-        MathJax.typesetPromise([document.getElementById('question-text'), document.getElementById('options-container')]);
-    }
+    if (window.MathJax) MathJax.typesetPromise([document.getElementById('question-text'), document.getElementById('options-container')]);
 
     renderPalette();
     saveState();
@@ -277,11 +262,9 @@ function renderPalette() {
         const btn = document.createElement('button');
         const s = state.statuses[q.QID];
         counts[s]++;
-        
         btn.className = `palette-btn ${s}`;
         btn.innerText = idx + 1;
         btn.onclick = () => loadQuestion(idx, state.currentSection);
-        
         if (idx === state.currentIndex) btn.style.border = "2px solid #000";
         palette.appendChild(btn);
     });
@@ -293,42 +276,29 @@ function renderPalette() {
     document.querySelector('.status-legend .answered-marked').innerText = counts[STATUS.ANSWERED_MARKED];
 }
 
-function getCurrentQ() {
-    return state.questions.filter(q => q.Section === state.currentSection)[state.currentIndex];
-}
+function getCurrentQ() { return state.questions.filter(q => q.Section === state.currentSection)[state.currentIndex]; }
 
 function navigate(forward, save) {
     const q = getCurrentQ();
-    
     if (save) {
         const selected = document.querySelector('input[name="option"]:checked');
         if (selected) {
             state.answers[q.QID] = selected.value;
-            if(state.statuses[q.QID] === STATUS.MARKED || state.statuses[q.QID] === STATUS.ANSWERED_MARKED) {
-                state.statuses[q.QID] = STATUS.ANSWERED_MARKED;
-            } else {
-                state.statuses[q.QID] = STATUS.ANSWERED;
-            }
+            state.statuses[q.QID] = (state.statuses[q.QID] === STATUS.MARKED || state.statuses[q.QID] === STATUS.ANSWERED_MARKED) ? STATUS.ANSWERED_MARKED : STATUS.ANSWERED;
         } else if (state.statuses[q.QID] !== STATUS.MARKED && state.statuses[q.QID] !== STATUS.ANSWERED_MARKED) {
             state.statuses[q.QID] = STATUS.NOT_ANSWERED;
         }
     }
 
     const sectionQs = state.questions.filter(qu => qu.Section === state.currentSection);
-    if (forward && state.currentIndex < sectionQs.length - 1) {
-        loadQuestion(state.currentIndex + 1, state.currentSection);
-    } else if (!forward && state.currentIndex > 0) {
-        loadQuestion(state.currentIndex - 1, state.currentSection);
-    } else {
-        renderPalette(); 
-        saveState();
-    }
+    if (forward && state.currentIndex < sectionQs.length - 1) loadQuestion(state.currentIndex + 1, state.currentSection);
+    else if (!forward && state.currentIndex > 0) loadQuestion(state.currentIndex - 1, state.currentSection);
+    else { renderPalette(); saveState(); }
 }
 
 function markForReview() {
     const q = getCurrentQ();
     const selected = document.querySelector('input[name="option"]:checked');
-    
     if (selected) {
         state.answers[q.QID] = selected.value;
         state.statuses[q.QID] = STATUS.ANSWERED_MARKED;
@@ -342,26 +312,18 @@ function clearResponse() {
     const q = getCurrentQ();
     delete state.answers[q.QID];
     state.statuses[q.QID] = STATUS.NOT_ANSWERED;
-    
     const options = document.querySelectorAll('input[name="option"]');
     options.forEach(opt => opt.checked = false);
-    
-    renderPalette();
-    saveState();
+    renderPalette(); saveState();
 }
 
 // ==========================================
-// 7. SUBMISSION LOGIC (TO GOOGLE SHEETS)
+// SUBMISSION
 // ==========================================
-function confirmSubmit() {
-    if (confirm("Are you sure you want to submit the exam? You cannot change your answers after submission.")) {
-        autoSubmit();
-    }
-}
+function confirmSubmit() { if (confirm("Submit exam? You cannot change answers after submission.")) autoSubmit(); }
 
 async function autoSubmit() {
     clearInterval(state.timerInterval);
-    
     try { if (document.exitFullscreen) document.exitFullscreen(); } catch(e){}
 
     document.getElementById('exam-screen').classList.remove('active');
@@ -369,169 +331,31 @@ async function autoSubmit() {
     
     const resultsDiv = document.getElementById('score-summary');
     resultsDiv.style.display = "block";
-    resultsDiv.innerHTML = "<h3>Submitting results securely... Please do not close this window.</h3>";
+    resultsDiv.innerHTML = "<h3>Submitting securely... Please wait.</h3>";
 
-    // Calculate Score
     let correct = 0, incorrect = 0, unattempted = 0;
     state.questions.forEach(q => {
         const ans = state.answers[q.QID];
         if (!ans) unattempted++;
-        else if (ans === q.Answer) correct++;
+        else if (ans.toUpperCase() === q.Answer.toUpperCase()) correct++;
         else incorrect++;
     });
     const marks = (correct * 4) - (incorrect * 1);
 
-    // Send to Google Sheets
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
-            body: JSON.stringify({ 
-                action: "submit", 
-                userId: loggedInUser || "Unknown", 
-                score: marks,
-                correct: correct,
-                incorrect: incorrect,
-                timeRemaining: state.timeLeft
-            }),
+            body: JSON.stringify({ action: "submit", userId: loggedInUser || "Unknown", score: marks, correct: correct, incorrect: incorrect, timeRemaining: state.timeLeft }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         
         resultsDiv.innerHTML = `
             <h3>Total Score: ${marks}</h3>
-            <p>Your results have been successfully recorded by the administrator.</p>
+            <p>Your results have been successfully recorded.</p>
             <p>Correct: ${correct} | Incorrect: ${incorrect} | Unattempted: ${unattempted}</p>
         `;
         localStorage.removeItem('mockExamState'); 
-        
     } catch (error) {
-        resultsDiv.innerHTML = `
-            <h3 style="color: red;">Submission Error</h3>
-            <p>There was a network error submitting your exam. Please take a screenshot of this page and contact your administrator.</p>
-            <p><strong>Score: ${marks}</strong></p>
-            <p>Correct: ${correct} | Incorrect: ${incorrect} | Unattempted: ${unattempted}</p>
-        `;
+        resultsDiv.innerHTML = `<h3 style="color: red;">Submission Error</h3><p>Network error submitting exam. Take a screenshot.</p><p><strong>Score: ${marks}</strong></p>`;
     }
-}
-
-// ==========================================
-// 8. ADMIN / IMPORT LOGIC
-// ==========================================
-function checkAdminMode() {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === '1') {
-        document.getElementById('admin-panel').style.display = 'block';
-    }
-}
-
-function handleImport() {
-    const fileInput = document.getElementById('csv-upload');
-    const textInput = document.getElementById('data-paste').value.trim();
-    const statusDiv = document.getElementById('import-status');
-    
-    if (fileInput && fileInput.files.length > 0) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            parseCSV(e.target.result, statusDiv);
-        };
-        reader.readAsText(fileInput.files[0]);
-    } else if (textInput) {
-        if (textInput.startsWith('[')) {
-            try {
-                const data = JSON.parse(textInput);
-                saveImportedData(data, statusDiv);
-            } catch(e) {
-                statusDiv.innerText = "Invalid JSON format.";
-            }
-        } else {
-            parseCSV(textInput, statusDiv);
-        }
-    } else {
-        statusDiv.innerText = "Please upload a file or paste data.";
-    }
-}
-
-function parseCSV(csvText, statusDiv) {
-    try {
-        const lines = csvText.split('\n').filter(l => l.trim().length > 0);
-        const headers = lines[0].split(',').map(h => h.trim());
-        
-        const data = [];
-        for (let i = 1; i < lines.length; i++) {
-            const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
-            const obj = {};
-            headers.forEach((h, index) => {
-                let val = row[index] ? row[index].trim() : '';
-                if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
-                obj[h] = val;
-            });
-            data.push(obj);
-        }
-        saveImportedData(data, statusDiv);
-    } catch(e) {
-        statusDiv.innerText = "Error parsing CSV.";
-        console.error(e);
-    }
-}
-
-function saveImportedData(data, statusDiv) {
-    if (!data[0] || !data[0].Section || !data[0].QID || !data[0].Question) {
-        statusDiv.innerText = "Error: Missing required columns (Section, QID, Question).";
-        return;
-    }
-    
-    state.questions = data;
-    localStorage.removeItem('mockExamState'); 
-    state.answers = {};
-    state.statuses = {};
-    state.timeLeft = EXAM_DURATION;
-    saveState();
-    
-    statusDiv.style.color = "green";
-    statusDiv.innerText = `Successfully imported ${data.length} questions. Reloading...`;
-    setTimeout(() => location.reload(), 1500);
-}
-
-// ==========================================
-// 9. SEND REQUEST LOGIC
-// ==========================================
-
-async function handleAccessRequest() {
-    const name = document.getElementById('req-name').value.trim();
-    const email = document.getElementById('req-email').value.trim();
-    const statusText = document.getElementById('request-status');
-    const btn = document.getElementById('btn-send-request');
-    
-    if (!name || !email) {
-        statusText.style.color = "red";
-        statusText.innerText = "Please enter both name and email.";
-        return;
-    }
-    
-    statusText.style.color = "blue";
-    statusText.innerText = "Sending request...";
-    btn.disabled = true;
-
-    try {
-        const response = await fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: "requestAccess", name: name, email: email }),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            statusText.style.color = "green";
-            statusText.innerText = "Request sent! The teacher will contact you soon.";
-            document.getElementById('req-name').value = '';
-            document.getElementById('req-email').value = '';
-        } else {
-            statusText.style.color = "red";
-            statusText.innerText = data.message || "Failed to send request. Please try again.";
-        }
-    } catch (e) {
-        statusText.style.color = "red";
-        statusText.innerText = "Network error. Make sure you are connected to the internet.";
-    }
-    btn.disabled = false;
 }
