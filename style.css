@@ -25,9 +25,24 @@ body {
     color: var(--text-main);
 }
 
-/* Screen Management */
-.screen { display: none; }
-.screen.active { display: block; }
+/* =========================================
+   Screen Management (STRICT SINGLE-VIEW)
+   ========================================= */
+.screen { 
+    display: none !important; /* The !important tag absolutely prevents inactive screens from showing */
+}
+
+/* Standard screens (like the Exam) become blocks when active */
+.screen.active { 
+    display: block !important; 
+}
+
+/* Portal screens (Login/Result) become flexboxes when active so they center perfectly */
+.screen.modern-portal-light.active { 
+    display: flex !important; 
+    align-items: center;
+    justify-content: center;
+}
 
 /* General Layouts */
 .container {
@@ -217,11 +232,9 @@ body {
     position: relative;
     width: 100vw;
     height: 100vh;
-    background-color: #f0f4f8; /* Soft light grayish-blue */
+    background-color: #f0f4f8; 
     overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    /* Notice: display, align-items, and justify-content were moved to the active state above */
 }
 
 .bg-canvas {
