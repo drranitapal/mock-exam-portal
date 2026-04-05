@@ -16,7 +16,7 @@ let state = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-    initPortalCanvas();
+    initPortalCanvas('portal-canvas');
     fetchQuestionBank(); // Fetch from sheet on load
     
     document.getElementById('btn-login').addEventListener('click', handleLogin);
@@ -30,6 +30,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('link-show-request').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-box').style.display = 'none'; document.getElementById('request-box').style.display = 'block'; });
     document.getElementById('btn-cancel-request').addEventListener('click', () => { document.getElementById('request-box').style.display = 'none'; document.getElementById('login-box').style.display = 'block'; });
     document.getElementById('btn-send-request').addEventListener('click', handleAccessRequest);
+    const logoutBtn = document.getElementById('btn-student-logout');
+    if(logoutBtn) {
+        logoutBtn.addEventListener('click', () => { location.reload(); });
+    }
 });
 
 // ==========================================
@@ -332,6 +336,7 @@ async function autoSubmit() {
     
     const resultsDiv = document.getElementById('score-summary');
     resultsDiv.style.display = "block";
+    initPortalCanvas('result-canvas');
     resultsDiv.innerHTML = "<h3>Submitting securely... Please wait.</h3>";
 
     let correct = 0, incorrect = 0, unattempted = 0;
@@ -349,7 +354,7 @@ async function autoSubmit() {
             body: JSON.stringify({ action: "submit", userId: loggedInUser || "Unknown", score: marks, correct: correct, incorrect: incorrect, timeRemaining: state.timeLeft }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
-        
+        initPortalCanvas('result-canvas');
         resultsDiv.innerHTML = `
             <h3>Total Score: ${marks}</h3>
             <p>Your results have been successfully recorded.</p>
@@ -361,10 +366,11 @@ async function autoSubmit() {
     }
 }
 // ==========================================
-// PORTAL BACKGROUND ANIMATION (CANVAS)
+// LIGHT THEME BACKGROUND ANIMATION
 // ==========================================
-function initPortalCanvas() {
-    const canvas = document.getElementById('portal-canvas');
+// Pass the canvas ID so we can use it on both the setup and result screens
+function initPortalCanvas(canvasId) {
+    const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
@@ -379,8 +385,8 @@ function initPortalCanvas() {
         constructor() {
             this.x = Math.random() * width;
             this.y = Math.random() * height;
-            this.vx = (Math.random() - 0.5) * 0.5;
-            this.vy = (Math.random() - 0.5) * 0.5;
+            this.vx = (Math.random() - 0.5) * 0.4; // Slower, calmer movement
+            this.vy = (Math.random() - 0.5) * 0.4;
             this.radius = Math.random() * 2 + 1;
         }
         update() {
@@ -392,15 +398,14 @@ function initPortalCanvas() {
         draw() {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(56, 189, 248, 0.5)';
+            ctx.fillStyle = 'rgba(0, 86, 179, 0.15)'; // Soft NTA blue
             ctx.fill();
         }
     }
 
     function initParticles() {
         particles = [];
-        // Number of particles depends on screen size (keeps mobile from lagging)
-        const numParticles = Math.floor((width * height) / 15000); 
+        const numParticles = Math.floor((width * height) / 12000); 
         for (let i = 0; i < numParticles; i++) particles.push(new Particle());
     }
 
@@ -411,16 +416,16 @@ function initPortalCanvas() {
             particles[i].update();
             particles[i].draw();
             
-            // Draw lines between close particles
             for (let j = i + 1; j < particles.length; j++) {
                 const dx = particles[i].x - particles[j].x;
                 const dy = particles[i].y - particles[j].y;
                 const dist = dx * dx + dy * dy;
                 
-                if (dist < 10000) {
+                if (dist < 12000) {
                     ctx.beginPath();
-                    ctx.strokeStyle = `rgba(56, 189, 248, ${1 - dist/10000})`;
-                    ctx.lineWidth = 0.5;
+                    // Lines fade out based on distance. Soft blue color.
+                    ctx.strokeStyle = `rgba(0, 86, 179, ${(1 - dist/12000) * 0.15})`;
+                    ctx.lineWidth = 1;
                     ctx.moveTo(particles[i].x, particles[i].y);
                     ctx.lineTo(particles[j].x, particles[j].y);
                     ctx.stroke();
