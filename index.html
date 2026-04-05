@@ -152,11 +152,14 @@
 	<div id="fullscreen-warning-modal" class="warning-overlay" style="display: none;">
         <div class="warning-box text-center">
             <div class="warning-icon">⚠️</div>
-            <h2 style="color: #ef4444; margin-bottom: 15px;">Warning: Full-Screen Exited</h2>
+            <h2 style="color: #ef4444; margin-bottom: 15px;">Full-Screen Exited</h2>
             <p id="warning-msg-text" style="margin-bottom: 25px; font-size: 16px; line-height: 1.5; color: #334155;">
-                You have exited full-screen mode. Escaping full-screen 3 times will result in automatic test submission.
+                Kindly go fullscreen or else you will not be able to resume the test.
             </p>
-            <button id="btn-return-fullscreen" class="btn warning-btn">I Understand - Return to Exam</button>
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <button id="btn-return-fullscreen" class="btn glass-btn-primary" style="background: #22c55e; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4); max-width: 200px;">Go Full Screen</button>
+                <button id="btn-force-submit" class="btn warning-btn" style="max-width: 200px;">Submit Exam</button>
+            </div>
         </div>
     </div>
 </body>
