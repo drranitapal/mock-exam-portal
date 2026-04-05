@@ -23,35 +23,40 @@
 <body>
 
 	<div id="setup-screen" class="screen active">
-		<div class="container">
-			<h1>Mock Examination Portal</h1>
-			<p>Duration: 180 Minutes | Total Questions: 150</p>
-			
-			<div id="login-box" style="margin-top: 20px; text-align: left; background: #f8f9fa; padding: 20px; border-radius: 5px;">
-				<h3>Student Login</h3>
-				<input type="text" id="login-id" placeholder="User ID" style="width: 100%; padding: 10px; margin: 10px 0;">
-                <input type="password" id="login-pass" placeholder="Password" style="width: 100%; padding: 10px; margin: 10px 0;">
-                <button id="btn-login" class="btn primary-btn" style="width: 100%;">Login & Start Exam</button>
-				<p id="login-status" style="color: red; margin-top: 10px; font-weight: bold;"></p>
-				
-				<hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
-				<p style="text-align: center; font-size: 14px;">Don't have an ID? <a href="#" id="link-show-request" style="color: var(--primary-blue);">Request Test Access</a></p>
-			</div>
-	
-			<div id="request-box" style="display: none; margin-top: 20px; text-align: left; background: #e9f2fb; padding: 20px; border-radius: 5px;">
-				<h3>Request Test Access</h3>
-				<p style="font-size: 14px; margin-bottom: 15px;">Enter your details. The administrator will email you a one-time User ID and Password.</p>
-				<input type="text" id="req-name" placeholder="Your Full Name" placeholder="User ID" style="width: 100%; padding: 10px; margin: 10px 0;">
-				<input type="email" id="req-email" placeholder="Your Email Address" placeholder="User ID" style="width: 100%; padding: 10px; margin: 10px 0;">
-				<button id="btn-send-request" class="btn primary-btn" style="width: 100%;">Send Request</button>
-				<button id="btn-cancel-request" class="btn secondary-btn" style="width: 100%; margin-top: 10px;">Cancel</button>
-				<p id="request-status" style="margin-top: 10px; font-weight: bold;"></p>
-			</div>
-			
-			<div id="admin-panel" style="display: none;" class="admin-card">
-				 </div>
-		</div>
-	</div>
+        <div class="container">
+            <h1>Mock Examination Portal</h1>
+            
+            <div id="global-loader" style="padding: 40px; text-align: center;">
+                <h3 style="color: var(--primary-blue);">Loading Question Bank...</h3>
+                <p>Please wait while we establish a secure connection.</p>
+            </div>
+
+            <div id="auth-container" style="display: none;">
+                <p>Total Sections: <span id="display-sections">--</span> | Total Questions: <span id="display-total-q">--</span></p>
+                
+                <div id="login-box" style="margin-top: 20px; text-align: left; background: #f8f9fa; padding: 20px; border-radius: 5px;">
+                    <h3>Student Login</h3>
+                    <input type="text" id="login-id" placeholder="User ID" class="input-field">
+                    <input type="password" id="login-pass" placeholder="Password" class="input-field">
+                    <button id="btn-login" class="btn primary-btn" style="width: 100%;">Login & Start Exam</button>
+                    <p id="login-status" style="color: red; margin-top: 10px; font-weight: bold;"></p>
+                    
+                    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
+                    <p style="text-align: center; font-size: 14px;">Don't have an ID? <a href="#" id="link-show-request" style="color: var(--primary-blue);">Request Test Access</a></p>
+                </div>
+
+                <div id="request-box" style="display: none; margin-top: 20px; text-align: left; background: #e9f2fb; padding: 20px; border-radius: 5px;">
+                    <h3>Request Test Access</h3>
+                    <p style="font-size: 14px; margin-bottom: 15px;">Enter your details. The administrator will email you access credentials.</p>
+                    <input type="text" id="req-name" placeholder="Your Full Name" class="input-field">
+                    <input type="email" id="req-email" placeholder="Your Email Address" class="input-field">
+                    <button id="btn-send-request" class="btn primary-btn" style="width: 100%;">Send Request</button>
+                    <button id="btn-cancel-request" class="btn secondary-btn" style="width: 100%; margin-top: 10px;">Cancel</button>
+                    <p id="request-status" style="margin-top: 10px; font-weight: bold;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
 	
     <div id="exam-screen" class="screen">
         <header class="exam-header">
