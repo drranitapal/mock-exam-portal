@@ -1,23 +1,19 @@
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRQ3WhDiNLYHvd5TzaTE3w8ogenhbow4CAITQ8duCMcq1Xc5XczJhzzQK5W3T5D6eaqA/exec"; // PASTE YOUR URL HERE
 let loggedInUser = "";
+let EXAM_DURATION = 180 * 60; // Default, will be overwritten by Google Sheets
 
-const EXAM_DURATION = 180 * 60; 
 const STATUS = { NOT_VISITED: 'not-visited', NOT_ANSWERED: 'not-answered', ANSWERED: 'answered', MARKED: 'marked', ANSWERED_MARKED: 'answered-marked' };
 
+// Added 'escapeCount' to track fullscreen exits
 let state = {
-    questions: [],
-    sections: [],
-    currentSection: '',
-    currentIndex: 0,
-    answers: {},       
-    statuses: {},      
-    timeLeft: EXAM_DURATION,
-    timerInterval: null
+    questions: [], sections: [], currentSection: '', currentIndex: 0,
+    answers: {}, statuses: {}, timeLeft: EXAM_DURATION, timerInterval: null,
+    escapeCount: 0 
 };
 
 document.addEventListener("DOMContentLoaded", () => {
     initPortalCanvas('portal-canvas');
-    fetchQuestionBank(); // Fetch from sheet on load
+    fetchQuestionBank(); 
     
     document.getElementById('btn-login').addEventListener('click', handleLogin);
     document.getElementById('btn-next').addEventListener('click', () => navigate(true, true));
@@ -26,18 +22,42 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('btn-clear').addEventListener('click', clearResponse);
     document.getElementById('btn-submit-exam').addEventListener('click', confirmSubmit);
     
-    // Request Access Toggles
     document.getElementById('link-show-request').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-box').style.display = 'none'; document.getElementById('request-box').style.display = 'block'; });
     document.getElementById('btn-cancel-request').addEventListener('click', () => { document.getElementById('request-box').style.display = 'none'; document.getElementById('login-box').style.display = 'block'; });
     document.getElementById('btn-send-request').addEventListener('click', handleAccessRequest);
+
     const logoutBtn = document.getElementById('btn-student-logout');
-    if(logoutBtn) {
-        logoutBtn.addEventListener('click', () => { location.reload(); });
-    }
+    if(logoutBtn) logoutBtn.addEventListener('click', () => { location.reload(); });
+
+    // --- FULL SCREEN ANTI-CHEAT LISTENERS ---
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 });
 
 // ==========================================
-// DATA FETCHING (NEW)
+// ANTI-CHEAT FULLSCREEN LOGIC
+// ==========================================
+function handleFullscreenChange() {
+    // Only trigger if the exam is currently active
+    if (document.getElementById('exam-screen').classList.contains('active')) {
+        if (!document.fullscreenElement && !document.webkitIsFullScreen) {
+            state.escapeCount = (state.escapeCount || 0) + 1;
+            saveState(); // Save immediately so they can't bypass by refreshing
+
+            if (state.escapeCount === 1) {
+                alert("WARNING (1/3): You have exited full-screen mode. Escaping full-screen 3 times will result in automatic test submission.");
+            } else if (state.escapeCount === 2) {
+                alert("WARNING (2/3): You have exited full-screen mode again! One more time and your exam will be auto-submitted immediately.");
+            } else if (state.escapeCount >= 3) {
+                alert("EXAM AUTO-SUBMITTED: You have tried to escape full screen mode 3 times. Your test is now ending.");
+                autoSubmit();
+            }
+        }
+    }
+}
+
+// ==========================================
+// DATA FETCHING (Now includes Settings)
 // ==========================================
 async function fetchQuestionBank() {
     try {
@@ -45,16 +65,18 @@ async function fetchQuestionBank() {
         const data = await response.json();
         
         if (data.success && data.data.length > 0) {
+            // Apply Timer from Google Sheets
+            if (data.settings && data.settings.TimerMinutes) {
+                EXAM_DURATION = parseInt(data.settings.TimerMinutes) * 60;
+                if (!localStorage.getItem('mockExamState')) state.timeLeft = EXAM_DURATION;
+            }
+
             state.questions = data.data;
-            
-            // Dynamically extract all unique sections
             state.sections = [...new Set(state.questions.map(q => q.Section).filter(Boolean))];
             state.currentSection = state.sections[0];
             
-            // Initialize statuses
             state.questions.forEach(q => { if (!state.statuses[q.QID]) state.statuses[q.QID] = STATUS.NOT_VISITED; });
             
-            // Update UI
             document.getElementById('display-sections').innerText = state.sections.length;
             document.getElementById('display-total-q').innerText = state.questions.length;
             document.getElementById('global-loader').style.display = 'none';
@@ -62,10 +84,10 @@ async function fetchQuestionBank() {
             
             checkResumeState();
         } else {
-            document.getElementById('global-loader').innerHTML = "<h3 style='color:red;'>Error loading questions. Admin: Check your Google Sheet data.</h3>";
+            document.getElementById('global-loader').innerHTML = "<h3 class='gradient-text-light' style='color:red;'>Error loading questions. Admin: Check Google Sheet.</h3>";
         }
     } catch (error) {
-        document.getElementById('global-loader').innerHTML = "<h3 style='color:red;'>Network error. Please refresh the page.</h3>";
+        document.getElementById('global-loader').innerHTML = "<h3 class='gradient-text-light' style='color:red;'>Network error. Please refresh the page.</h3>";
     }
 }
 
@@ -74,11 +96,11 @@ function checkResumeState() {
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            // Only resume if the questions haven't changed completely
             if (parsed.questions && parsed.questions.length === state.questions.length) {
                 state.answers = parsed.answers;
                 state.statuses = parsed.statuses;
                 state.timeLeft = parsed.timeLeft;
+                state.escapeCount = parsed.escapeCount || 0;
             }
         } catch (e) { console.error("Failed to parse saved state"); }
     }
@@ -98,8 +120,7 @@ async function handleLogin() {
     
     if (!userId || !pass) { statusText.innerText = "Please enter both ID and Password."; return; }
     
-    statusText.style.color = "blue";
-    statusText.innerText = "Authenticating...";
+    statusText.style.color = "#0056b3"; statusText.innerText = "Authenticating...";
     document.getElementById('btn-login').disabled = true;
 
     try {
@@ -114,13 +135,11 @@ async function handleLogin() {
             loggedInUser = userId;
             startExam(); 
         } else {
-            statusText.style.color = "red";
-            statusText.innerText = data.message;
+            statusText.style.color = "red"; statusText.innerText = data.message;
             document.getElementById('btn-login').disabled = false;
         }
     } catch (e) {
-        statusText.style.color = "red";
-        statusText.innerText = "Network error.";
+        statusText.style.color = "red"; statusText.innerText = "Network error.";
         document.getElementById('btn-login').disabled = false;
     }
 }
@@ -133,7 +152,7 @@ async function handleAccessRequest() {
     
     if (!name || !email) { statusText.style.color = "red"; statusText.innerText = "Please enter both name and email."; return; }
     
-    statusText.style.color = "blue"; statusText.innerText = "Sending request..."; btn.disabled = true;
+    statusText.style.color = "#0056b3"; statusText.innerText = "Sending request..."; btn.disabled = true;
 
     try {
         const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -216,51 +235,38 @@ function loadQuestion(index, section) {
 
     document.getElementById('current-q-num').innerText = `Question ${index + 1}`;
     
-    // Render Text & Image
     let qHTML = (q.Question || "").replace(/\n/g, '<br>');
     if (q.ImageURL && q.ImageURL.trim() !== "") {
         qHTML += `<br><img src="${q.ImageURL.trim()}" alt="Question Image" style="max-width:100%; margin-top:15px; border-radius:5px;">`;
     }
     document.getElementById('question-text').innerHTML = qHTML;
 
-    // DYNAMIC OPTIONS GENERATION (Option A to Option N)
     const optContainer = document.getElementById('options-container');
     optContainer.innerHTML = '';
     
-    // Find all keys in the object that start with "Option" and have a value
     const optionKeys = Object.keys(q).filter(k => k.startsWith('Option') && q[k].trim() !== '');
-    
     optionKeys.forEach(optKey => {
-        const optLetter = optKey.replace('Option', '').trim(); // Gets "A", "B", etc.
+        const optLetter = optKey.replace('Option', '').trim();
         const optVal = q[optKey];
-
         const label = document.createElement('label');
         label.className = 'option-label';
-        
         const radio = document.createElement('input');
-        radio.type = 'radio';
-        radio.name = 'option';
-        radio.value = optLetter;
+        radio.type = 'radio'; radio.name = 'option'; radio.value = optLetter;
         if (state.answers[q.QID] === optLetter) radio.checked = true;
-
         radio.addEventListener('change', (e) => { state.answers[q.QID] = e.target.value; });
-
         label.appendChild(radio);
         label.appendChild(document.createTextNode(` ${optLetter}. ${optVal}`));
         optContainer.appendChild(label);
     });
 
     if (window.MathJax) MathJax.typesetPromise([document.getElementById('question-text'), document.getElementById('options-container')]);
-
-    renderPalette();
-    saveState();
+    renderPalette(); saveState();
 }
 
 function renderPalette() {
     const sectionQs = state.questions.filter(q => q.Section === state.currentSection);
     const palette = document.getElementById('question-palette');
     palette.innerHTML = '';
-
     const counts = { [STATUS.NOT_VISITED]:0, [STATUS.NOT_ANSWERED]:0, [STATUS.ANSWERED]:0, [STATUS.MARKED]:0, [STATUS.ANSWERED_MARKED]:0 };
 
     sectionQs.forEach((q, idx) => {
@@ -283,8 +289,13 @@ function renderPalette() {
 
 function getCurrentQ() { return state.questions.filter(q => q.Section === state.currentSection)[state.currentIndex]; }
 
+// ==========================================
+// UPDATED NAVIGATION (SECTION JUMPING)
+// ==========================================
 function navigate(forward, save) {
     const q = getCurrentQ();
+    
+    // Save response logic
     if (save) {
         const selected = document.querySelector('input[name="option"]:checked');
         if (selected) {
@@ -296,9 +307,31 @@ function navigate(forward, save) {
     }
 
     const sectionQs = state.questions.filter(qu => qu.Section === state.currentSection);
-    if (forward && state.currentIndex < sectionQs.length - 1) loadQuestion(state.currentIndex + 1, state.currentSection);
-    else if (!forward && state.currentIndex > 0) loadQuestion(state.currentIndex - 1, state.currentSection);
-    else { renderPalette(); saveState(); }
+    
+    if (forward) {
+        if (state.currentIndex < sectionQs.length - 1) {
+            // Normal: Move to next question in current section
+            loadQuestion(state.currentIndex + 1, state.currentSection);
+        } else {
+            // Reached the end of the current section
+            const currentSectionIndex = state.sections.indexOf(state.currentSection);
+            if (currentSectionIndex < state.sections.length - 1) {
+                // JUMP to next section automatically
+                switchSection(state.sections[currentSectionIndex + 1]);
+            } else {
+                // Last question of the LAST section: Do nothing except save
+                renderPalette();
+                saveState();
+            }
+        }
+    } else {
+        // Going backwards
+        if (state.currentIndex > 0) {
+            loadQuestion(state.currentIndex - 1, state.currentSection);
+        } else {
+            renderPalette(); saveState(); 
+        }
+    }
 }
 
 function markForReview() {
@@ -333,11 +366,11 @@ async function autoSubmit() {
 
     document.getElementById('exam-screen').classList.remove('active');
     document.getElementById('result-screen').classList.add('active');
+    initPortalCanvas('result-canvas'); // Start animation on result screen
     
     const resultsDiv = document.getElementById('score-summary');
     resultsDiv.style.display = "block";
-    initPortalCanvas('result-canvas');
-    resultsDiv.innerHTML = "<h3>Submitting securely... Please wait.</h3>";
+    resultsDiv.innerHTML = "<h3 class='gradient-text-light'>Submitting securely... Please wait.</h3>";
 
     let correct = 0, incorrect = 0, unattempted = 0;
     state.questions.forEach(q => {
@@ -354,21 +387,21 @@ async function autoSubmit() {
             body: JSON.stringify({ action: "submit", userId: loggedInUser || "Unknown", score: marks, correct: correct, incorrect: incorrect, timeRemaining: state.timeLeft }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
-        initPortalCanvas('result-canvas');
+        
         resultsDiv.innerHTML = `
-            <h3>Total Score: ${marks}</h3>
-            <p>Your results have been successfully recorded.</p>
-            <p>Correct: ${correct} | Incorrect: ${incorrect} | Unattempted: ${unattempted}</p>
+            <h3 class="gradient-text-light" style="font-size: 28px;">Total Score: ${marks}</h3>
+            <p style="color: #64748b; margin-bottom: 15px;">Your results have been successfully recorded.</p>
+            <p><strong>Correct:</strong> ${correct} &nbsp;|&nbsp; <strong>Incorrect:</strong> ${incorrect} &nbsp;|&nbsp; <strong>Unattempted:</strong> ${unattempted}</p>
         `;
         localStorage.removeItem('mockExamState'); 
     } catch (error) {
         resultsDiv.innerHTML = `<h3 style="color: red;">Submission Error</h3><p>Network error submitting exam. Take a screenshot.</p><p><strong>Score: ${marks}</strong></p>`;
     }
 }
+
 // ==========================================
 // LIGHT THEME BACKGROUND ANIMATION
 // ==========================================
-// Pass the canvas ID so we can use it on both the setup and result screens
 function initPortalCanvas(canvasId) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -385,20 +418,19 @@ function initPortalCanvas(canvasId) {
         constructor() {
             this.x = Math.random() * width;
             this.y = Math.random() * height;
-            this.vx = (Math.random() - 0.5) * 0.4; // Slower, calmer movement
+            this.vx = (Math.random() - 0.5) * 0.4; 
             this.vy = (Math.random() - 0.5) * 0.4;
             this.radius = Math.random() * 2 + 1;
         }
         update() {
-            this.x += this.vx;
-            this.y += this.vy;
+            this.x += this.vx; this.y += this.vy;
             if (this.x < 0 || this.x > width) this.vx = -this.vx;
             if (this.y < 0 || this.y > height) this.vy = -this.vy;
         }
         draw() {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(0, 86, 179, 0.15)'; // Soft NTA blue
+            ctx.fillStyle = 'rgba(0, 86, 179, 0.15)'; 
             ctx.fill();
         }
     }
@@ -411,19 +443,14 @@ function initPortalCanvas(canvasId) {
 
     function animate() {
         ctx.clearRect(0, 0, width, height);
-        
         for (let i = 0; i < particles.length; i++) {
-            particles[i].update();
-            particles[i].draw();
-            
+            particles[i].update(); particles[i].draw();
             for (let j = i + 1; j < particles.length; j++) {
                 const dx = particles[i].x - particles[j].x;
                 const dy = particles[i].y - particles[j].y;
                 const dist = dx * dx + dy * dy;
-                
                 if (dist < 12000) {
                     ctx.beginPath();
-                    // Lines fade out based on distance. Soft blue color.
                     ctx.strokeStyle = `rgba(0, 86, 179, ${(1 - dist/12000) * 0.15})`;
                     ctx.lineWidth = 1;
                     ctx.moveTo(particles[i].x, particles[i].y);
@@ -434,9 +461,6 @@ function initPortalCanvas(canvasId) {
         }
         requestAnimationFrame(animate);
     }
-
     window.addEventListener('resize', () => { resize(); initParticles(); });
-    resize();
-    initParticles();
-    animate();
+    resize(); initParticles(); animate();
 }
