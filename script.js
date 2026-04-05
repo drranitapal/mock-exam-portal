@@ -16,6 +16,7 @@ let state = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+    initPortalCanvas();
     fetchQuestionBank(); // Fetch from sheet on load
     
     document.getElementById('btn-login').addEventListener('click', handleLogin);
@@ -358,4 +359,79 @@ async function autoSubmit() {
     } catch (error) {
         resultsDiv.innerHTML = `<h3 style="color: red;">Submission Error</h3><p>Network error submitting exam. Take a screenshot.</p><p><strong>Score: ${marks}</strong></p>`;
     }
+}
+// ==========================================
+// PORTAL BACKGROUND ANIMATION (CANVAS)
+// ==========================================
+function initPortalCanvas() {
+    const canvas = document.getElementById('portal-canvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    let width, height, particles;
+
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    }
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * width;
+            this.y = Math.random() * height;
+            this.vx = (Math.random() - 0.5) * 0.5;
+            this.vy = (Math.random() - 0.5) * 0.5;
+            this.radius = Math.random() * 2 + 1;
+        }
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            if (this.x < 0 || this.x > width) this.vx = -this.vx;
+            if (this.y < 0 || this.y > height) this.vy = -this.vy;
+        }
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.5)';
+            ctx.fill();
+        }
+    }
+
+    function initParticles() {
+        particles = [];
+        // Number of particles depends on screen size (keeps mobile from lagging)
+        const numParticles = Math.floor((width * height) / 15000); 
+        for (let i = 0; i < numParticles; i++) particles.push(new Particle());
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, width, height);
+        
+        for (let i = 0; i < particles.length; i++) {
+            particles[i].update();
+            particles[i].draw();
+            
+            // Draw lines between close particles
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const dist = dx * dx + dy * dy;
+                
+                if (dist < 10000) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = `rgba(56, 189, 248, ${1 - dist/10000})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.stroke();
+                }
+            }
+        }
+        requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', () => { resize(); initParticles(); });
+    resize();
+    initParticles();
+    animate();
 }
