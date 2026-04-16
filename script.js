@@ -464,6 +464,155 @@ async function autoSubmit() {
     }
 }
 // ==========================================
+// CHEMISTRY BACKGROUND ANIMATION
+// ==========================================
+function initPortalCanvas(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    let width, height, particles;
+
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    }
+
+    // Draws a true Benzene ring with a delocalized inner circle
+    function drawBenzene(x, y, size, rotation, opacity) {
+        ctx.strokeStyle = `rgba(0, 86, 179, ${opacity})`;
+        ctx.lineWidth = 1.5;
+        
+        // Draw the outer hexagon
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = rotation + (Math.PI / 3) * i;
+            const hx = x + size * Math.cos(angle);
+            const hy = y + size * Math.sin(angle);
+            if (i === 0) ctx.moveTo(hx, hy);
+            else ctx.lineTo(hx, hy);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        
+        // Draw the inner circle (representing alternating double bonds / delocalized ring)
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.65, 0, Math.PI * 2);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Draw atoms at the vertices
+        for (let i = 0; i < 6; i++) {
+            const angle = rotation + (Math.PI / 3) * i;
+            const hx = x + size * Math.cos(angle);
+            const hy = y + size * Math.sin(angle);
+            ctx.beginPath();
+            ctx.arc(hx, hy, 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0, 86, 179, ${opacity + 0.2})`;
+            ctx.fill();
+        }
+    }
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * width;
+            this.y = Math.random() * height;
+            this.vx = (Math.random() - 0.5) * 0.3; // Gentle drift
+            this.vy = (Math.random() - 0.5) * 0.3;
+            this.radius = Math.random() * 3 + 1.5; 
+            
+            // 15% chance to be a Benzene ring
+            this.isBenzene = Math.random() > 0.85; 
+            this.hexSize = Math.random() * 15 + 20; // Slightly larger for detail
+            
+            // Allow rings to slowly rotate
+            this.rotation = Math.random() * Math.PI * 2;
+            this.rotationSpeed = (Math.random() - 0.5) * 0.01;
+        }
+        update() {
+            this.x += this.vx; 
+            this.y += this.vy;
+            this.rotation += this.rotationSpeed;
+            
+            if (this.x < -50 || this.x > width + 50) this.vx = -this.vx;
+            if (this.y < -50 || this.y > height + 50) this.vy = -this.vy;
+        }
+        draw() {
+            if (this.isBenzene) {
+                drawBenzene(this.x, this.y, this.hexSize, this.rotation, 0.2);
+            } else {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 86, 179, 0.25)';
+                ctx.fill();
+            }
+        }
+    }
+
+    function initParticles() {
+        particles = [];
+        const numParticles = Math.floor((width * height) / 13000); 
+        for (let i = 0; i < numParticles; i++) particles.push(new Particle());
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, width, height);
+        
+        for (let i = 0; i < particles.length; i++) {
+            particles[i].update(); 
+            particles[i].draw();
+            
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[j].x - particles[i].x;
+                const dy = particles[j].y - particles[i].y;
+                const dist = dx * dx + dy * dy;
+                
+                if (dist < 15000) {
+                    const opacity = (1 - dist/15000) * 0.2;
+                    ctx.strokeStyle = `rgba(0, 86, 179, ${opacity})`;
+                    
+                    // Pseudo-randomly assign DOUBLE BONDS based on particle index combinations
+                    if ((i + j) % 5 === 0 && dist < 8000) {
+                        // Calculate the normal vector to draw parallel double lines
+                        const length = Math.sqrt(dist);
+                        const nx = -dy / length;
+                        const ny = dx / length;
+                        const gap = 3; // Space between double bonds
+                        
+                        ctx.lineWidth = 1.2;
+                        
+                        // Bond line 1
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x + nx * gap, particles[i].y + ny * gap);
+                        ctx.lineTo(particles[j].x + nx * gap, particles[j].y + ny * gap);
+                        ctx.stroke();
+                        
+                        // Bond line 2
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x - nx * gap, particles[i].y - ny * gap);
+                        ctx.lineTo(particles[j].x - nx * gap, particles[j].y - ny * gap);
+                        ctx.stroke();
+                    } else {
+                        // Standard single bond
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        requestAnimationFrame(animate);
+    }
+    
+    window.addEventListener('resize', () => { resize(); initParticles(); });
+    resize(); 
+    initParticles(); 
+    animate();
+}
+/*
+// ==========================================
 // CHEMISTRY THEME BACKGROUND ANIMATION
 // ==========================================
 function initPortalCanvas(canvasId) {
@@ -575,6 +724,7 @@ function initPortalCanvas(canvasId) {
     initParticles(); 
     animate();
 }
+*/
 /*
 // ==========================================
 // LIGHT THEME BACKGROUND ANIMATION
