@@ -448,7 +448,119 @@ async function autoSubmit() {
         resultsDiv.innerHTML = `<h3 style="color: red;">Submission Error</h3><p>Network error submitting exam. Take a screenshot.</p><p><strong>Score: ${marks}</strong></p>`;
     }
 }
+// ==========================================
+// CHEMISTRY THEME BACKGROUND ANIMATION
+// ==========================================
+function initPortalCanvas(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    let width, height, particles;
 
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    }
+
+    // Helper function to draw a Benzene Ring (Hexagon)
+    function drawHexagon(x, y, size, opacity) {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const hx = x + size * Math.cos(angle);
+            const hy = y + size * Math.sin(angle);
+            if (i === 0) ctx.moveTo(hx, hy);
+            else ctx.lineTo(hx, hy);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = `rgba(0, 86, 179, ${opacity})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // Draw small circles at the vertices to represent atoms
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const hx = x + size * Math.cos(angle);
+            const hy = y + size * Math.sin(angle);
+            ctx.beginPath();
+            ctx.arc(hx, hy, 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0, 86, 179, ${opacity + 0.15})`;
+            ctx.fill();
+        }
+    }
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * width;
+            this.y = Math.random() * height;
+            this.vx = (Math.random() - 0.5) * 0.3; // Very slow, calm drift
+            this.vy = (Math.random() - 0.5) * 0.3;
+            this.radius = Math.random() * 3 + 1.5; // Standard atom size
+            
+            // 15% chance for a node to be a large hexagonal ring instead of a single atom
+            this.isHexagon = Math.random() > 0.85; 
+            this.hexSize = Math.random() * 20 + 15;
+        }
+        update() {
+            this.x += this.vx; 
+            this.y += this.vy;
+            // Bounce smoothly off edges with a slight buffer
+            if (this.x < -50 || this.x > width + 50) this.vx = -this.vx;
+            if (this.y < -50 || this.y > height + 50) this.vy = -this.vy;
+        }
+        draw() {
+            if (this.isHexagon) {
+                drawHexagon(this.x, this.y, this.hexSize, 0.15);
+            } else {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 86, 179, 0.2)'; // Soft NTA blue
+                ctx.fill();
+            }
+        }
+    }
+
+    function initParticles() {
+        particles = [];
+        // Adjust particle density based on screen size
+        const numParticles = Math.floor((width * height) / 12000); 
+        for (let i = 0; i < numParticles; i++) particles.push(new Particle());
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, width, height);
+        
+        for (let i = 0; i < particles.length; i++) {
+            particles[i].update(); 
+            particles[i].draw();
+            
+            // Connect nearby nodes to form organic chains
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const dist = dx * dx + dy * dy;
+                
+                if (dist < 15000) {
+                    ctx.beginPath();
+                    // Lines fade out beautifully based on distance
+                    ctx.strokeStyle = `rgba(0, 86, 179, ${(1 - dist/15000) * 0.15})`;
+                    ctx.lineWidth = 1;
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.stroke();
+                }
+            }
+        }
+        requestAnimationFrame(animate);
+    }
+    
+    window.addEventListener('resize', () => { resize(); initParticles(); });
+    resize(); 
+    initParticles(); 
+    animate();
+}
+/*
 // ==========================================
 // LIGHT THEME BACKGROUND ANIMATION
 // ==========================================
@@ -514,3 +626,4 @@ function initPortalCanvas(canvasId) {
     window.addEventListener('resize', () => { resize(); initParticles(); });
     resize(); initParticles(); animate();
 }
+*/
