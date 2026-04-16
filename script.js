@@ -290,16 +290,18 @@ function loadQuestion(index, section) {
     if (q.ImageURL && q.ImageURL.trim() !== "") {
         let finalImageUrl = q.ImageURL.trim();
         
-        // Auto-convert Google Drive sharing links to Direct Image Links
+        // Match the Google Drive URL and extract the ID
         const driveRegex = /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/;
         const match = finalImageUrl.match(driveRegex);
         
         if (match && match[1]) {
-            // Extract the File ID and force it into Google's direct-view format
-            finalImageUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
+            const fileId = match[1];
+            // Use Google's Thumbnail API (sz=w1000 forces a high-quality 1000px width)
+            finalImageUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
         }
         
-        qHTML += `<br><img src="${finalImageUrl}" alt="Question Image" style="max-width:100%; margin-top:15px; border-radius:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">`;
+        // We add an 'onerror' fallback. If Google blocks the image, it shows a helpful error box instead of a broken icon.
+        qHTML += `<br><img src="${finalImageUrl}" alt="Question Image" style="max-width:100%; margin-top:15px; border-radius:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onerror="this.onerror=null; this.src='https://placehold.co/600x200/fee2e2/991b1b?text=Image+Blocked+by+Google+Drive';">`;
     }
     
     document.getElementById('question-text').innerHTML = qHTML;
