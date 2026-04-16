@@ -23,8 +23,20 @@
 body {
     background-color: var(--bg-main);
     color: var(--text-main);
+    
+    /* --- ANTI-COPY CSS --- */
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
 }
-
+/* Allow text selection ONLY inside input fields so students can type their login credentials */
+input, textarea {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
 /* =========================================
    Screen Management (STRICT SINGLE-VIEW)
    ========================================= */
