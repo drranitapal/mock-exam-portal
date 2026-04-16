@@ -4,6 +4,33 @@ let EXAM_DURATION = 180 * 60; // Default, will be overwritten by Google Sheets
 
 const STATUS = { NOT_VISITED: 'not-visited', NOT_ANSWERED: 'not-answered', ANSWERED: 'answered', MARKED: 'marked', ANSWERED_MARKED: 'answered-marked' };
 
+// ==========================================
+// ANTI-CHEAT: DISABLE RIGHT-CLICK & SHORTCUTS
+// ==========================================
+
+// 1. Disable Right-Click (Context Menu)
+document.addEventListener('contextmenu', event => {
+    event.preventDefault();
+});
+
+// 2. Disable Common Keyboard Shortcuts
+document.addEventListener('keydown', event => {
+    // Block F12 (Developer Tools)
+    if (event.key === 'F12') {
+        event.preventDefault();
+    }
+    
+    // Block Ctrl+Shift+I / Ctrl+Shift+J (Developer Tools)
+    if (event.ctrlKey && event.shiftKey && (event.key === 'I' || event.key === 'i' || event.key === 'J' || event.key === 'j' || event.key === 'C' || event.key === 'c')) {
+        event.preventDefault();
+    }
+    
+    // Block Ctrl+U (View Source), Ctrl+C (Copy), Ctrl+P (Print)
+    if (event.ctrlKey && (event.key === 'U' || event.key === 'u' || event.key === 'C' || event.key === 'c' || event.key === 'P' || event.key === 'p')) {
+        event.preventDefault();
+    }
+});
+
 // Added 'escapeCount' to track fullscreen exits
 let state = {
     questions: [], sections: [], currentSection: '', currentIndex: 0,
