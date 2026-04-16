@@ -286,9 +286,22 @@ function loadQuestion(index, section) {
     document.getElementById('current-q-num').innerText = `Question ${index + 1}`;
     
     let qHTML = (q.Question || "").replace(/\n/g, '<br>');
+    
     if (q.ImageURL && q.ImageURL.trim() !== "") {
-        qHTML += `<br><img src="${q.ImageURL.trim()}" alt="Question Image" style="max-width:100%; margin-top:15px; border-radius:5px;">`;
+        let finalImageUrl = q.ImageURL.trim();
+        
+        // Auto-convert Google Drive sharing links to Direct Image Links
+        const driveRegex = /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/;
+        const match = finalImageUrl.match(driveRegex);
+        
+        if (match && match[1]) {
+            // Extract the File ID and force it into Google's direct-view format
+            finalImageUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
+        }
+        
+        qHTML += `<br><img src="${finalImageUrl}" alt="Question Image" style="max-width:100%; margin-top:15px; border-radius:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">`;
     }
+    
     document.getElementById('question-text').innerHTML = qHTML;
 
     const optContainer = document.getElementById('options-container');
